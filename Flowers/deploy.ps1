@@ -19,6 +19,7 @@ kubectl delete -f .\kubernetes-manifests\ --recursive 2>$null
 kubectl delete pvc --all 2>$null
 
 # 2. Применение манифестов
+Write-Host "2. Применение манифестов..." -ForegroundColor Yellow
 $manifests = @(
     ".\kubernetes-manifests\configmaps\",
     ".\kubernetes-manifests\secrets\",
@@ -27,7 +28,6 @@ $manifests = @(
     ".\kubernetes-manifests\ingress\"
 )
 
-
 foreach ($manifest in $manifests) {
     try {
         kubectl apply -f $manifest
@@ -35,13 +35,19 @@ foreach ($manifest in $manifests) {
         Write-Host "Ошибка при применении манифеста $manifest : $_" -ForegroundColor Yellow
     }
 }
+Write-Host "Применение манифестов завершено!" -ForegroundColor Green
 
 # 3. Установка PostgreSQL
 Write-Host "`n3. Установка PostgreSQL..." -ForegroundColor Cyan
 
-$POSTGRES_USER = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 -d
-$POSTGRES_PASSWORD = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
-$POSTGRES_DB = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_DB}' | base64 -d
+function Decode-Base64 {
+    param([string]$encoded)
+    [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($encoded))
+}
+
+$POSTGRES_USER = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_USER}')
+$POSTGRES_PASSWORD = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_PASSWORD}')
+$POSTGRES_DB = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_DB}')
 
 helm upgrade --install postgresql bitnami/postgresql `
   --set global.postgresql.auth.postgresPassword=$POSTGRES_PASSWORD `
@@ -100,7 +106,7 @@ if (-not $ingressInstalled) {
 }
 
 # 5. Ожидание БД
-Write-Host "`n5. Ожидание PostgreSQL..." -ForegroundColor Cyan
+Write-Host "`n5. Ожидание БД..." -ForegroundColor Cyan
 $timeout = 180
 $startTime = Get-Date
 $dbReady = $false
@@ -110,6 +116,7 @@ while (-not $dbReady) {
         $status = kubectl get pod -l app.kubernetes.io/name=postgresql -o json | ConvertFrom-Json
         if ($status.items.status.containerStatuses.ready -eq $true) {
             $dbReady = $true
+			Write-Host "БД запущена!" -ForegroundColor Green
             break
         }
     } catch {
@@ -139,7 +146,7 @@ $startTime = Get-Date
 while ($true) {
     $jobStatus = kubectl get job db-migration -o json | ConvertFrom-Json
     if ($jobStatus.status.succeeded -eq 1) {
-        Write-Host "Миграция БД успешно завершена!" -ForegroundColor Green
+        Write-Host "Миграция БД завершена!" -ForegroundColor Green
         break
     }
     elseif ($jobStatus.status.failed -gt 0) {

@@ -8,16 +8,25 @@ spec:
       containers:
       - name: migrator
         image: bitnami/postgresql:latest
-        envFrom:
-        - secretRef:
-            name: db-secret
+        env:
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_USER
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_PASSWORD
+        - name: PGDATABASE
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_DB
         command: ["/bin/sh", "-c"]
         args:
           - |
-            export PGPASSWORD=$(echo "$POSTGRES_PASSWORD" | base64 -d)
-            export PGUSER=$(echo "$POSTGRES_USER" | base64 -d)
-            export PGDATABASE=$(echo "$POSTGRES_DB" | base64 -d)
-            
             until pg_isready -h postgresql -U $PGUSER -d $PGDATABASE; do
               sleep 2
               echo "Waiting for PostgreSQL..."
@@ -38,9 +47,6 @@ spec:
             
             echo "Table details:"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ users"
-            
-            echo "Sample data:"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "SELECT * FROM users LIMIT 5;"
             
             echo "Migration completed successfully!"
       restartPolicy: Never
