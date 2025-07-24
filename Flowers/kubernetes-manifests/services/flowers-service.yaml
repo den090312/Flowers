@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flowers-service
+spec:
+  selector:
+    app: flowers-api
+  ports:
+  - protocol: TCP
+    port: 80       
+    targetPort: 8080

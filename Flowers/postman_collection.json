@@ -1,0 +1,172 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890",
+    "name": "Flowers User API",
+    "description": "CRUD operations for User API (corrected paths)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"testuser\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1234567890\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/user",
+          "protocol": "http",
+          "host": ["{{base_url}}"],
+          "path": ["user"]
+        },
+        "description": "Creates a new user. Note: path is /user (not /users)"
+      }
+    },
+    {
+      "name": "Get All Users",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/user",
+          "protocol": "http",
+          "host": ["{{base_url}}"],
+          "path": ["user"]
+        },
+        "description": "Gets all users (uses [HttpGet(\"\")] in controller)"
+      }
+    },
+    {
+      "name": "Get User by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/user/1",
+          "protocol": "http",
+          "host": ["{{base_url}}"],
+          "path": ["user", "1"]
+        },
+        "description": "Gets specific user by ID"
+      }
+    },
+    {
+      "name": "Update User",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"updateduser\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"updated.email@example.com\",\n  \"phone\": \"+9876543210\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/user/1",
+          "protocol": "http",
+          "host": ["{{base_url}}"],
+          "path": ["user", "1"]
+        },
+        "description": "Updates existing user"
+      }
+    },
+    {
+      "name": "Delete User",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/user/1",
+          "protocol": "http",
+          "host": ["{{base_url}}"],
+          "path": ["user", "1"]
+        },
+        "description": "Deletes user by ID"
+      }
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "protocol": "http",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Basic health check endpoint"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "arch.homework",
+      "type": "string",
+      "description": "Base URL for API endpoints"
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Status code is successful\", function() {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+          "});",
+          "",
+          "pm.test(\"Response has JSON body\", function() {",
+          "    if (pm.response.code !== 204) {",
+          "        pm.response.to.have.jsonBody();",
+          "    }",
+          "});"
+        ]
+      }
+    }
+  ]
+}

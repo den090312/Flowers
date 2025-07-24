@@ -1,0 +1,6 @@
+@Flowers_HostAddress = http://localhost:5101
+
+GET {{Flowers_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

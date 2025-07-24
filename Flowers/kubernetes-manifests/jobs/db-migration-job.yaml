@@ -1,0 +1,32 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrator
+        image: bitnami/postgresql:latest  # Официальный образ PostgreSQL
+        envFrom:
+        - secretRef:
+            name: db-secret
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            until pg_isready -h postgresql -U postgres -d users_db; do
+              sleep 2
+              echo "Waiting for PostgreSQL..."
+            done
+            psql -U postgres -d users_db -c "
+              CREATE TABLE IF NOT EXISTS Users (
+                Id BIGSERIAL PRIMARY KEY,
+                Username VARCHAR(255) NOT NULL UNIQUE,
+                FirstName VARCHAR(255) NOT NULL,
+                LastName VARCHAR(255) NOT NULL,
+                Email VARCHAR(255) NOT NULL UNIQUE,
+                Phone VARCHAR(50) NOT NULL
+              );"
+            echo "Table 'Users' created successfully!"
+      restartPolicy: Never
+  backoffLimit: 2

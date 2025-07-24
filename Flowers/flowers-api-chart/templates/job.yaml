@@ -1,0 +1,21 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-migration
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrator
+        image: "{{ .Values.app.image.repository }}-migrator:{{ .Values.app.image.tag }}"
+        env:
+        - name: DB_HOST
+          value: {{ .Values.db.host | quote }}
+        - name: DB_NAME
+          value: {{ .Values.db.name | quote }}
+        - name: DB_USER
+          value: {{ .Values.db.user | quote }}
+        - name: DB_PASSWORD
+          value: {{ .Values.db.password | quote }}
+      restartPolicy: Never
+  backoffLimit: 2
