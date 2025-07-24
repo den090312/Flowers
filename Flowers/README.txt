@@ -21,7 +21,7 @@ helm upgrade --install postgresql bitnami/postgresql `
   --set persistence.enabled=true `
   --set persistence.size=1Gi
 
-# 6. Запуск job для миграции БД
+**# 6. Запуск job для миграции БД
 Write-Host "`n6. Запуск job для миграции БД..." -ForegroundColor Cyan
 
 # Применяем job
