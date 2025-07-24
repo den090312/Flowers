@@ -4,7 +4,7 @@
 команда применения первоначальных миграций - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/run.cmd **
 команда kubectl apply -f, которая запускает в правильном порядке манифесты кубернетеса - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/run.cmd ***
 Postman коллекция, в которой будут представлены примеры запросов к сервису на создание, получение, изменение и удаление пользователя. Важно: в postman коллекции использовать базовый url - arch.homework. - https://github.com/den090312/Flowers/blob/master/Flowers/my-collection.json
-Проверить корректность работы приложения используя созданную коллекцию newman run коллекция_постман и приложить скриншот/вывод исполнения корректной работы - https://github.com/den090312/Flowers/blob/master/Flowers/newman%20run%20my-collection.png
+Проверить корректность работы приложения используя созданную коллекцию newman run коллекция_постман и приложить скриншот/вывод исполнения корректной работы - https://github.com/den090312/Flowers/blob/master/Flowers/newman%20run.png
 
 *# 3. Установка PostgreSQL
 Write-Host "`n3. Установка PostgreSQL..." -ForegroundColor Cyan
