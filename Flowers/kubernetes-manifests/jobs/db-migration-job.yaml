@@ -7,26 +7,41 @@ spec:
     spec:
       containers:
       - name: migrator
-        image: bitnami/postgresql:latest  # Официальный образ PostgreSQL
+        image: bitnami/postgresql:latest
         envFrom:
         - secretRef:
             name: db-secret
         command: ["/bin/sh", "-c"]
         args:
           - |
-            until pg_isready -h postgresql -U postgres -d users_db; do
+            export PGPASSWORD=$(echo "$POSTGRES_PASSWORD" | base64 -d)
+            export PGUSER=$(echo "$POSTGRES_USER" | base64 -d)
+            export PGDATABASE=$(echo "$POSTGRES_DB" | base64 -d)
+            
+            until pg_isready -h postgresql -U $PGUSER -d $PGDATABASE; do
               sleep 2
               echo "Waiting for PostgreSQL..."
             done
-            psql -U postgres -d users_db -c "
-              CREATE TABLE IF NOT EXISTS Users (
-                Id BIGSERIAL PRIMARY KEY,
-                Username VARCHAR(255) NOT NULL UNIQUE,
-                FirstName VARCHAR(255) NOT NULL,
-                LastName VARCHAR(255) NOT NULL,
-                Email VARCHAR(255) NOT NULL UNIQUE,
-                Phone VARCHAR(50) NOT NULL
+            
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS users (
+                id BIGSERIAL PRIMARY KEY,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                firstname VARCHAR(255) NOT NULL,
+                lastname VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                phone VARCHAR(50) NOT NULL
               );"
-            echo "Table 'Users' created successfully!"
+            
+            echo "Database structure:"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\dt"
+            
+            echo "Table details:"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ users"
+            
+            echo "Sample data:"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "SELECT * FROM users LIMIT 5;"
+            
+            echo "Migration completed successfully!"
       restartPolicy: Never
   backoffLimit: 2

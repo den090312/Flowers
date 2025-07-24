@@ -18,18 +18,41 @@ helm uninstall postgresql 2>$null
 kubectl delete -f .\kubernetes-manifests\ --recursive 2>$null
 kubectl delete pvc --all 2>$null
 
-# 2. Установка PostgreSQL
-Write-Host "`n2. Установка PostgreSQL..." -ForegroundColor Cyan
+# 2. Применение манифестов
+$manifests = @(
+    ".\kubernetes-manifests\configmaps\",
+    ".\kubernetes-manifests\secrets\",
+    ".\kubernetes-manifests\deployments\",
+    ".\kubernetes-manifests\services\",
+    ".\kubernetes-manifests\ingress\"
+)
+
+
+foreach ($manifest in $manifests) {
+    try {
+        kubectl apply -f $manifest
+    } catch {
+        Write-Host "Ошибка при применении манифеста $manifest : $_" -ForegroundColor Yellow
+    }
+}
+
+# 3. Установка PostgreSQL
+Write-Host "`n3. Установка PostgreSQL..." -ForegroundColor Cyan
+
+$POSTGRES_USER = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 -d
+$POSTGRES_PASSWORD = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
+$POSTGRES_DB = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_DB}' | base64 -d
+
 helm upgrade --install postgresql bitnami/postgresql `
-  --set global.postgresql.auth.postgresPassword=postgres `
-  --set global.postgresql.auth.username=postgres `
-  --set global.postgresql.auth.password=postgres `
-  --set global.postgresql.auth.database=users_db `
+  --set global.postgresql.auth.postgresPassword=$POSTGRES_PASSWORD `
+  --set global.postgresql.auth.username=$POSTGRES_USER `
+  --set global.postgresql.auth.password=$POSTGRES_PASSWORD `
+  --set global.postgresql.auth.database=$POSTGRES_DB `
   --set persistence.enabled=true `
   --set persistence.size=1Gi
   
-# 3. Проверка и установка Ingress Nginx Controller
-Write-Host "`n3. Проверка и установка Ingress Nginx Controller..." -ForegroundColor Cyan
+# 4. Проверка и установка Ingress Nginx Controller
+Write-Host "`n4. Проверка и установка Ingress Nginx Controller..." -ForegroundColor Cyan
 
 # Проверяем, установлен ли уже ingress-nginx
 $ingressInstalled = helm list -n ingress-nginx | findstr "ingress-nginx"
@@ -76,8 +99,8 @@ if (-not $ingressInstalled) {
     Write-Host "Ingress Nginx Controller уже установлен, пропускаем установку" -ForegroundColor Green
 }
 
-# 4. Ожидание БД
-Write-Host "`n4. Ожидание PostgreSQL..." -ForegroundColor Cyan
+# 5. Ожидание БД
+Write-Host "`n5. Ожидание PostgreSQL..." -ForegroundColor Cyan
 $timeout = 180
 $startTime = Get-Date
 $dbReady = $false
@@ -102,40 +125,42 @@ while (-not $dbReady) {
     Write-Host "Ожидание..." -ForegroundColor Gray
 }
 
-# 6. Проверка подключения к БД
-Write-Host "`n6. Проверка структуры БД и таблицы users:" -ForegroundColor Cyan
-kubectl exec pod/postgresql-0 -- env PGPASSWORD=postgres psql -U postgres -d users_db -c @"
-CREATE TABLE IF NOT EXISTS Users (
-    Id BIGSERIAL PRIMARY KEY,
-    Username VARCHAR(255) NOT NULL UNIQUE,
-    FirstName VARCHAR(255) NOT NULL,
-    LastName VARCHAR(255) NOT NULL,
-    Email VARCHAR(255) NOT NULL UNIQUE,
-    Phone VARCHAR(50) NOT NULL
-);
-"@
-kubectl exec pod/postgresql-0 -- bash -c @"
-PGPASSWORD=postgres psql -U postgres -d users_db -c '\dt'
-PGPASSWORD=postgres psql -U postgres -d users_db -c '\d+ users'
-PGPASSWORD=postgres psql -U postgres -d users_db -c 'SELECT * FROM users LIMIT 5;'
-"@
+# 6. Запуск job для миграции БД
+Write-Host "`n6. Запуск job для миграции БД..." -ForegroundColor Cyan
 
-# 7.1. Применение манифестов
-$manifests = @(
-    ".\kubernetes-manifests\configmaps\",
-    ".\kubernetes-manifests\secrets\",
-    ".\kubernetes-manifests\deployments\",
-    ".\kubernetes-manifests\services\",
-    ".\kubernetes-manifests\ingress\"
-)
+# Применяем job
+kubectl apply -f .\kubernetes-manifests\jobs\db-migration-job.yaml
 
-foreach ($manifest in $manifests) {
-    try {
-        kubectl apply -f $manifest
-    } catch {
-        Write-Host "Ошибка при применении манифеста $manifest : $_" -ForegroundColor Yellow
+# Ожидаем завершения job
+Write-Host "Ожидаем завершения миграции..." -ForegroundColor Yellow
+$timeout = 120
+$startTime = Get-Date
+
+while ($true) {
+    $jobStatus = kubectl get job db-migration -o json | ConvertFrom-Json
+    if ($jobStatus.status.succeeded -eq 1) {
+        Write-Host "Миграция БД успешно завершена!" -ForegroundColor Green
+        break
     }
+    elseif ($jobStatus.status.failed -gt 0) {
+        Write-Host "Ошибка при выполнении миграции!" -ForegroundColor Red
+        kubectl logs -l job-name=db-migration
+        exit 1
+    }
+    
+    if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
+        Write-Host "Таймаут ожидания миграции БД!" -ForegroundColor Red
+        kubectl logs -l job-name=db-migration
+        exit 1
+    }
+    
+    Start-Sleep -Seconds 5
+    Write-Host "." -NoNewline
 }
+
+# Выводим логи job
+Write-Host "`nЛоги миграции:" -ForegroundColor Cyan
+kubectl logs -l job-name=db-migration
 
 # 7.2 Развертывание API
 Write-Host "`n7.2. Развертывание flowers-api..." -ForegroundColor Green

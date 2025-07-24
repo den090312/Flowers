@@ -126,20 +126,6 @@
         },
         "description": "Deletes user by ID"
       }
-    },
-    {
-      "name": "Health Check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/health",
-          "protocol": "http",
-          "host": ["{{base_url}}"],
-          "path": ["health"]
-        },
-        "description": "Basic health check endpoint"
-      }
     }
   ],
   "variable": [
