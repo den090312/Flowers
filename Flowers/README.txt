@@ -1,4 +1,4 @@
-ссылка на директорию в github, где находится директория с манифестами кубернетеса - https://github.com/den090312/Flowers/tree/master/Flowers
+ссылка на директорию в github, где находится директория с манифестами кубернетеса - https://github.com/den090312/Flowers/tree/master/Flowers/kubernetes-manifests
 инструкция по запуску приложения. - 1) Запустить Docker Desktop (с включенным Kubernetes). 2) Запустить run.cmd
 команда установки БД из helm, вместе с файлом values.yaml. - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/deploy.ps1 * (см. Установка PostgreSQL)
 команда применения первоначальных миграций - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/deploy.ps1 ** (см. Запуск job для миграции БД)
