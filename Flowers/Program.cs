@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Flowers.Models;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -142,6 +143,8 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseHttpMetrics();
+app.MapMetrics();
 app.Run();
 
 // Кастомная проверка здоровья БД
