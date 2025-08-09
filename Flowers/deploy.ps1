@@ -40,6 +40,9 @@ Write-Host "Применение манифестов завершено!" -Fore
 # 3. Установка PostgreSQL
 Write-Host "`n3. Установка PostgreSQL..." -ForegroundColor Cyan
 
+helm repo add bitnami https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+helm repo update
+
 function Decode-Base64 {
     param([string]$encoded)
     [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($encoded))
@@ -272,3 +275,19 @@ try {
 Write-Host "`nГотово! Для ручной проверки выполните:" -ForegroundColor Green
 Write-Host "curl $apiUrl" -ForegroundColor Cyan
 Write-Host "или откройте в браузере: $apiUrl" -ForegroundColor Cyan
+
+# 11. Развертывание prometheus
+Write-Host "`n11. Развертывание prometheus" -ForegroundColor Green
+docker run -d \
+  --name=prometheus \
+  -p 9090:9090 \
+  --add-host=arch.homework:host-gateway \  # Сопоставление с хостом
+  -v ${PWD}/prometheus.yml:/etc/prometheus/prometheus.yml \
+  prom/prometheus
+
+Write-Host "`n7. Проверка prometheus..." -ForegroundColor Cyan  
+docker exec prometheus curl -v http://arch.homework/metrics 
+
+# 12. Развертывание grafana
+Write-Host "`n12. Развертывание grafana" -ForegroundColor Green
+docker run -d -p 3000:3000 --name=grafana grafana/grafana-enterprise
