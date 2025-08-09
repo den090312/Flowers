@@ -1,12 +1,12 @@
-ссылка на директорию в github, где находится директория с манифестами кубернетеса - https://github.com/den090312/Flowers/tree/master/Flowers
+ссылка на директорию в github, где находится директория с манифестами кубернетеса - https://github.com/den090312/Flowers/tree/master/Flowers/kubernetes-manifests
 инструкция по запуску приложения. - 1) Запустить Docker Desktop (с включенным Kubernetes). 2) Запустить run.cmd
-команда установки БД из helm, вместе с файлом values.yaml. - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/run.cmd *
-команда применения первоначальных миграций - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/run.cmd **
-команда kubectl apply -f, которая запускает в правильном порядке манифесты кубернетеса - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/run.cmd ***
+команда установки БД из helm, вместе с файлом values.yaml. - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/deploy.ps1 * (см. Установка PostgreSQL)
+команда применения первоначальных миграций - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/deploy.ps1 ** (см. Запуск job для миграции БД)
+команда kubectl apply -f, которая запускает в правильном порядке манифесты кубернетеса - это внутри https://github.com/den090312/Flowers/blob/master/Flowers/deploy.ps1 *** (см. Применение манифестов)
 Postman коллекция, в которой будут представлены примеры запросов к сервису на создание, получение, изменение и удаление пользователя. Важно: в postman коллекции использовать базовый url - arch.homework. - https://github.com/den090312/Flowers/blob/master/Flowers/my-collection.json
-Проверить корректность работы приложения используя созданную коллекцию newman run коллекция_постман и приложить скриншот/вывод исполнения корректной работы - https://github.com/den090312/Flowers/blob/master/Flowers/newman%20run%20my-collection.png
+Проверить корректность работы приложения используя созданную коллекцию newman run коллекция_постман и приложить скриншот/вывод исполнения корректной работы - https://github.com/den090312/Flowers/blob/master/Flowers/newman%20run.png
 
-*# 3. Установка PostgreSQL
+* #Установка PostgreSQL
 Write-Host "`n3. Установка PostgreSQL..." -ForegroundColor Cyan
 
 $POSTGRES_USER = kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 -d
@@ -21,7 +21,7 @@ helm upgrade --install postgresql bitnami/postgresql `
   --set persistence.enabled=true `
   --set persistence.size=1Gi
 
-**# 6. Запуск job для миграции БД
+** #Запуск job для миграции БД
 Write-Host "`n6. Запуск job для миграции БД..." -ForegroundColor Cyan
 
 # Применяем job
@@ -58,7 +58,7 @@ while ($true) {
 Write-Host "`nЛоги миграции:" -ForegroundColor Cyan
 kubectl logs -l job-name=db-migration
 
-***# 2. Применение манифестов
+*** #Применение манифестов
 $manifests = @(
     ".\kubernetes-manifests\configmaps\",
     ".\kubernetes-manifests\secrets\",
