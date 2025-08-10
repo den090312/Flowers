@@ -1,6 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
 scrape_configs:
   - job_name: 'flowers_api'
+    metrics_path: '/metrics'
     static_configs:
-      - targets: ['arch.homework'] 
-    metrics_path: '/metrics'     
+      - targets: ['arch.homework:9090']
     scheme: 'http'

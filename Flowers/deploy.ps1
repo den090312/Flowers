@@ -276,18 +276,136 @@ Write-Host "`nГотово! Для ручной проверки выполни�
 Write-Host "curl $apiUrl" -ForegroundColor Cyan
 Write-Host "или откройте в браузере: $apiUrl" -ForegroundColor Cyan
 
-# 11. Развертывание prometheus
-Write-Host "`n11. Развертывание prometheus" -ForegroundColor Green
-docker run -d \
-  --name=prometheus \
-  -p 9090:9090 \
-  --add-host=arch.homework:host-gateway \  # Сопоставление с хостом
-  -v ${PWD}/prometheus.yml:/etc/prometheus/prometheus.yml \
-  prom/prometheus
+# 11. Развертывание Prometheus
+Write-Host "`n11. Развертывание Prometheus" -ForegroundColor Cyan
+try {
+    # Запуск Prometheus
+    docker run -d `
+      --name prometheus `
+      --hostname arch.homework `
+      -p 9090:9090 `
+      -v ${PWD}/prometheus.yml:/etc/prometheus/prometheus.yml `
+      prom/prometheus
 
-Write-Host "`n7. Проверка prometheus..." -ForegroundColor Cyan  
-docker exec prometheus curl -v http://arch.homework/metrics 
+    # Проверка запуска контейнера
+    $prometheusStatus = docker inspect -f '{{.State.Status}}' prometheus 2>$null
+    if ($prometheusStatus -ne "running") {
+        throw "Prometheus container failed to start"
+    }
 
-# 12. Развертывание grafana
-Write-Host "`n12. Развертывание grafana" -ForegroundColor Green
-docker run -d -p 3000:3000 --name=grafana grafana/grafana-enterprise
+    Write-Host "Prometheus успешно запущен" -ForegroundColor Green
+}
+catch {
+    Write-Host "Ошибка при запуске Prometheus: $_" -ForegroundColor Red
+    exit 1
+}
+
+# Проверка метрик Prometheus
+Write-Host "`nПроверка метрик Prometheus..." -ForegroundColor Cyan
+try {
+    $retryCount = 0
+    $maxRetries = 5
+    $success = $false
+    
+    while ($retryCount -lt $maxRetries -and -not $success) {
+        try {
+            $metrics = curl -v http://arch.homework:9090/metrics 2>&1
+            if ($metrics -match "HTTP.*200") {
+                Write-Host "Метрики Prometheus доступны" -ForegroundColor Green
+                $success = $true
+            } else {
+                throw "Не удалось получить метрики"
+            }
+        }
+        catch {
+            $retryCount++
+            if ($retryCount -ge $maxRetries) {
+                throw
+            }
+            Start-Sleep -Seconds 5
+        }
+    }
+}
+catch {
+    Write-Host "Ошибка при проверке метрик Prometheus: $_" -ForegroundColor Yellow
+}
+
+# 12. Развертывание Grafana
+Write-Host "`n12. Развертывание Grafana" -ForegroundColor Cyan
+try {
+    # Запуск Grafana
+    docker run -d `
+      -p 3000:3000 `
+      --name=grafana `
+      grafana/grafana-enterprise
+
+    # Проверка запуска контейнера
+    $grafanaStatus = docker inspect -f '{{.State.Status}}' grafana 2>$null
+    if ($grafanaStatus -ne "running") {
+        throw "Grafana container failed to start"
+    }
+
+    Write-Host "Grafana успешно запущена" -ForegroundColor Green
+}
+catch {
+    Write-Host "Ошибка при запуске Grafana: $_" -ForegroundColor Red
+    exit 1
+}
+
+# 13. Создание общей сети и подключение контейнеров
+Write-Host "`n13. Настройка сети monitoring" -ForegroundColor Cyan
+try {
+    # Создание сети (если не существует)
+    $networkExists = docker network ls --filter name=monitoring --format '{{.Name}}'
+    if (-not $networkExists) {
+        docker network create monitoring
+    }
+
+    # Подключение контейнеров
+    docker network connect monitoring prometheus
+    docker network connect monitoring grafana
+
+    Write-Host "Контейнеры подключены к сети monitoring" -ForegroundColor Green
+    Write-Host "Адрес Prometheus для Grafana: http://prometheus:9090" -ForegroundColor Cyan
+}
+catch {
+    Write-Host "Ошибка при настройке сети: $_" -ForegroundColor Red
+}
+
+# Проверка доступности Grafana
+Write-Host "`nПроверка Grafana..." -ForegroundColor Cyan
+try {
+    $retryCount = 0
+    $maxRetries = 10
+    $success = $false
+    
+    while ($retryCount -lt $maxRetries -and -not $success) {
+        try {
+            $grafanaCheck = curl -v http://arch.homework:3000 2>&1
+            if ($grafanaCheck -match "HTTP.*200") {
+                Write-Host "Grafana доступна по адресу: http://arch.homework:3000" -ForegroundColor Green
+                Write-Host "Логин/пароль по умолчанию: admin/admin" -ForegroundColor Cyan
+                $success = $true
+            } else {
+                throw "Grafana не отвечает"
+            }
+        }
+        catch {
+            $retryCount++
+            if ($retryCount -ge $maxRetries) {
+                throw
+            }
+            Start-Sleep -Seconds 5
+        }
+    }
+}
+catch {
+    Write-Host "Grafana не стала доступна после $maxRetries попыток" -ForegroundColor Yellow
+}
+
+# 14. Инструментирование БД экспортером для prometheus
+Write-Host "`n14. Инструментирование БД экспортером для prometheus" -ForegroundColor Cyan
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install prometheus-postgresql prometheus-community/prometheus-postgres-exporter
+helm repo list
