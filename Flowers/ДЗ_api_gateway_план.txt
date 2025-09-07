@@ -1,0 +1,112 @@
+План доработки кода
+
+Создать Сервис Аутентификации: добавить в существующее ASP.NET Web.API:
+
+POST /register - принятие логина/пароля, хеширование пароля (используйте BCrypt), сохранение в отдельную таблицу auth_users (user_id, login, password_hash).
+
+POST /login - проверка логина/пароля, генерация JWT-токена. В токен нужно записать user_id и username.
+
+Модифицировать Flowers API:
+
+Добавить проверку заголовка Authorization и валидацию JWT-токена с помощью встроенного middleware.
+
+Изменить логику методов GET /user/{id} и PUT /user/{id}: сравнивать user_id из токена с id из URL. Если не совпадают — возвращать 403 Forbidden.
+
+Настроить Kong: Написать KongIngress или KongPlugin манифесты, которые будут маршрутизировать запросы:
+
+/auth -> на сервис аутентификации.
+
+/api -> на flowers-api.
+
+Тесты Postman
+Примерная структура тестового набора:
+
+Переменные:
+
+baseUrl: http://arch.homework
+
+user1_token, user2_token
+
+user1_id, user2_id
+
+randomUsername, randomEmail (генерируются через pm.variables.set('randomUsername', 'user_' + Math.floor(Math.random() * 10000)); в Pre-request Script)
+
+Сценарий:
+
+Register User 1 (POST {{baseUrl}}/auth/register, body: {"username": "{{randomUsername}}", "password": "pass123", "email": "{{randomEmail}}"})
+
+Login User 1 (POST {{baseUrl}}/auth/login, body: {"username": "{{randomUsername}}", "password": "pass123"}). В Tests скрипте: pm.variables.set('user1_token', pm.response.json().token);
+
+Get Profile WITHOUT token -> 401 (GET {{baseUrl}}/api/user/profile, без заголовка -> должен быть 401)
+
+Get Profile WITH token -> 200 (GET {{baseUrl}}/api/user/profile, с заголовком Authorization: Bearer {{user1_token}} -> 200)
+
+Update Profile (PUT {{baseUrl}}/api/user/profile, с токеном, body: {"firstName": "NewName"})
+
+Register and Login User 2 (Аналогично шагам 1 и 2, токен сохраняется в user2_token)
+
+User2 tries to get User1 profile -> 403 (GET {{baseUrl}}/api/user/{{user1_id}}, с заголовком Authorization: Bearer {{user2_token}} -> 403 Forbidden)
+
+Запуск из командной строки: newman run your-collection.json --global-var "baseUrl=http://arch.homework" -r cli
+
+=============================================================================================
+
+Краткое описание шагов после установки Kong:
+
+Настроить маршруты к вашему API - направить трафик через Kong на ваш flowers-api
+
+Добавить аутентификацию - настроить JWT плагин для защиты API
+
+Протестировать сценарии - регистрация, логин, доступ к профилю
+
+🔧 Конкретные следующие шаги:
+1. Создать Ingress для вашего API
+Замените kong-test-route на маршрут к вашему сервису:
+
+yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flowers-api-route
+  namespace: default  # или где у вас работает flowers-api
+  annotations:
+    konghq.com/strip-path: "true"
+spec:
+  ingressClassName: kong
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: flowers-api-service  # имя вашего сервиса
+            port:
+              number: 80  # порт вашего сервиса
+2. Настроить JWT аутентификацию
+Добавьте плагин аутентификации:
+
+yaml
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt-auth
+  namespace: default
+plugin: jwt
+3. Тестирование
+Протестируйте работу через:
+
+Port-forward: http://localhost:8080/api/user
+
+Прямой доступ: http://localhost:32057/api/user
+
+✅ Текущий статус:
+Kong работает ✅
+
+Port-forward настроен ✅
+
+Базовый маршрут создан ✅
+
+Готов к настройке бизнес-логики ✅
+
+Можно переходить к настройке маршрутов для вашего Flowers API! 🚀

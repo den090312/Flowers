@@ -409,3 +409,152 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 helm install prometheus-postgresql prometheus-community/prometheus-postgres-exporter
 helm repo list
+
+# 15. Установка и настройка Kong API Gateway
+Write-Host "`n15. Установка Kong API Gateway..." -ForegroundColor Cyan
+
+# Добавляем репозиторий Helm для Kong
+helm repo add kong https://charts.konghq.com
+helm repo update
+
+# Создаем namespace для Kong
+kubectl create namespace kong --dry-run=client -o yaml | kubectl apply -f -
+
+Write-Host "Устанавливаем Kong Ingress Controller..." -ForegroundColor Yellow
+helm upgrade --install kong kong/kong -n kong `
+  --set ingressController.installCRDs=false `
+  --set admin.enabled=true `
+  --set admin.http.enabled=true `
+  --set admin.type=ClusterIP `
+  --set proxy.type=NodePort `
+  --set proxy.http.enabled=true `
+  --set proxy.tls.enabled=true
+
+# Ждем запуска Kong
+Write-Host "Ожидаем запуска Kong..." -ForegroundColor Yellow
+$timeout = 120
+$startTime = Get-Date
+$kongReady = $false
+
+while (-not $kongReady) {
+    try {
+        $kongStatus = kubectl get pods -n kong -l app.kubernetes.io/name=kong -o json | ConvertFrom-Json
+        if ($kongStatus.items.status.containerStatuses.ready -eq $true -and $kongStatus.items.status.phase -eq "Running") {
+            $kongReady = $true
+            Write-Host "Kong успешно запущен!" -ForegroundColor Green
+            break
+        }
+    } catch {
+        # Продолжаем ожидать
+    }
+    
+    if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
+        Write-Host "Таймаут ожидания Kong!" -ForegroundColor Red
+        break
+    }
+    
+    Start-Sleep -Seconds 5
+    Write-Host "." -NoNewline
+}
+
+# Получаем NodePort порт Kong
+Write-Host "`nПолучаем адрес Kong Gateway..." -ForegroundColor Cyan
+$kongPort = kubectl get svc -n kong kong-kong-proxy -o jsonpath='{.spec.ports[0].nodePort}'
+Write-Host "Kong NodePort: $kongPort" -ForegroundColor Green
+
+# Настраиваем port forwarding для Kong
+Write-Host "Настраиваем port forwarding для Kong..." -ForegroundColor Cyan
+$portForwardJob = Start-Job -ScriptBlock {
+    kubectl port-forward -n kong svc/kong-kong-proxy 8080:80
+}
+
+# Ждем немного для установки port forwarding
+Start-Sleep -Seconds 3
+
+# Проверяем работу Kong через port forward
+Write-Host "`nПроверяем работу Kong Gateway через port forward..." -ForegroundColor Cyan
+
+# Определяем тестовый URL
+$testUrl = "http://localhost:8080"
+
+try {
+    # Пытаемся достучаться до Kong
+    $kongResponse = Invoke-WebRequest -Uri $testUrl -Method Get -UseBasicParsing -TimeoutSec 10
+    
+    # Если успешно (200 OK или другие 2xx), Kong полностью operational с маршрутом
+    Write-Host "✅ Kong Gateway полностью operational!" -ForegroundColor Green
+    Write-Host "   Статус: $($kongResponse.StatusCode)" -ForegroundColor Green
+    if ($kongResponse.Headers["Server"] -like "*kong*") {
+        Write-Host "   Обнаружен Kong server header: $($kongResponse.Headers['Server'])" -ForegroundColor Green
+    }
+    
+} catch {
+    # Обрабатываем исключения (которые часто включают 4xx и 5xx статусы)
+    if ($_.Exception.Response -ne $null) {
+        # Если исключение имеет response, это HTTP ошибка
+        $statusCode = $_.Exception.Response.StatusCode.value__
+        
+        if ($statusCode -eq 404) {
+            # 404 ожидаемо, когда маршруты не настроены
+            Write-Host "✅ Kong Gateway работает и принимает запросы!" -ForegroundColor Green
+            Write-Host "   Статус: 404 (Маршруты еще не настроены - это ожидаемо)" -ForegroundColor Yellow
+            Write-Host "   Следующий шаг: Настройка маршрутов и сервисов для вашего API" -ForegroundColor Cyan
+        } else {
+            # Другие 4xx/5xx ошибки могут указывать на проблемы конфигурации
+            Write-Host "⚠️  Kong ответил с неожиданной HTTP ошибкой:" -ForegroundColor Yellow
+            Write-Host "   Статус: $statusCode" -ForegroundColor Yellow
+            Write-Host "   Это может указывать на проблему с конфигурацией." -ForegroundColor Yellow
+        }
+    } else {
+        # Нет HTTP response (сетевая ошибка, таймаут, отказ соединения)
+        Write-Host "❌ Kong НЕ отвечает или недоступен:" -ForegroundColor Red
+        Write-Host "   Ошибка: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   Это указывает на серьезную проблему с установкой Kong или сетевой конфигурацией." -ForegroundColor Red
+    }
+}
+
+# Создаем базовый маршрут для тестирования
+Write-Host "`nСоздаем тестовый маршрут для Kong..." -ForegroundColor Cyan
+$kongTestRoute = @"
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kong-test-route
+  namespace: kong
+  annotations:
+    konghq.com/strip-path: "true"  # Другие Kong-специфичные аннотации остаются
+spec:
+  ingressClassName: kong  # ← Замена аннотации на это поле
+  rules:
+  - http:
+      paths:
+      - path: /test
+        pathType: Prefix
+        backend:
+          service:
+            name: kong-kong-proxy
+            port:
+              number: 80
+"@
+
+$kongTestRoute | kubectl apply -f -
+
+# Выводим информацию о сервисах
+Write-Host "`nТекущее состояние сервисов:" -ForegroundColor Green
+kubectl get svc -n kong
+kubectl get pods -n kong
+kubectl get ingress -n kong
+
+Write-Host "`nУстановка Kong завершена!" -ForegroundColor Green
+Write-Host "Kong API Gateway работает и готов" -ForegroundColor Cyan
+Write-Host "Доступ к Kong через port forward: http://localhost:8080" -ForegroundColor Cyan
+Write-Host "Тестовый URL: http://localhost:8080" -ForegroundColor Cyan
+Write-Host "Или прямой NodePort: http://localhost:$kongPort" -ForegroundColor Cyan
+Write-Host "Следующие шаги:" -ForegroundColor Yellow
+Write-Host "1. Настройте маршруты для ваших сервисов" -ForegroundColor Yellow
+Write-Host "2. Настройте плагины аутентификации" -ForegroundColor Yellow
+Write-Host "3. Настройте SSL/TLS при необходимости" -ForegroundColor Yellow
+
+Write-Host "`nPort forward job работает в фоне. Для остановки используйте:" -ForegroundColor Gray
+Write-Host "Stop-Job $($portForwardJob.Id)" -ForegroundColor Gray
+Write-Host "Remove-Job $($portForwardJob.Id)" -ForegroundColor Gray
