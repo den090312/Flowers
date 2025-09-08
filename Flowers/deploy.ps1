@@ -558,3 +558,91 @@ Write-Host "3. Настройте SSL/TLS при необходимости" -Fo
 Write-Host "`nPort forward job работает в фоне. Для остановки используйте:" -ForegroundColor Gray
 Write-Host "Stop-Job $($portForwardJob.Id)" -ForegroundColor Gray
 Write-Host "Remove-Job $($portForwardJob.Id)" -ForegroundColor Gray
+
+# Применение Kong ingress
+Write-Host "`nПрименение Kong ingress:" -ForegroundColor Green
+kubectl apply -f kong-ingress.yaml
+
+# 16. Проверка аутентификации
+Write-Host "`n16. Проверка аутентификации:" -ForegroundColor Green
+
+# Проверка регистрации
+Write-Host "Проверка регистрации:" -ForegroundColor Yellow
+$registerBody = @{
+    username = "testuser"
+    password = "pass123"
+    email = "test@example.com"
+    firstName = "Test"
+    lastName = "User"
+    phone = "+1234567890"
+} | ConvertTo-Json
+
+try {
+    $registerResponse = Invoke-RestMethod -Uri "http://arch.homework/auth/register" -Method Post -Body $registerBody -ContentType "application/json" -TimeoutSec 10
+    Write-Host "✅ Регистрация успешна! UserId: $($registerResponse.userId)" -ForegroundColor Green
+    $jwtToken = $registerResponse.token
+} catch {
+    Write-Host "❌ Ошибка регистрации: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Проверка логина
+Write-Host "`nПроверка логина:" -ForegroundColor Yellow
+$loginBody = @{
+    username = "testuser"
+    password = "pass123"
+} | ConvertTo-Json
+
+try {
+    $loginResponse = Invoke-RestMethod -Uri "http://arch.homework/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -TimeoutSec 10
+    Write-Host "✅ Логин успешен! Token получен" -ForegroundColor Green
+    $jwtToken = $loginResponse.token
+} catch {
+    Write-Host "❌ Ошибка логина: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Проверка профиля с токеном
+if ($jwtToken) {
+    Write-Host "`nПроверка профиля с токеном:" -ForegroundColor Yellow
+    try {
+        $profileResponse = Invoke-RestMethod -Uri "http://arch.homework/api/user/profile" -Method Get -Headers @{"Authorization" = "Bearer $jwtToken"} -TimeoutSec 10
+        Write-Host "✅ Профиль получен! Username: $($profileResponse.username)" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Ошибка получения профиля: $($_.Exception.Message)" -ForegroundColor Red
+    }
+} else {
+    Write-Host "❌ Токен не получен, пропускаем проверку профиля" -ForegroundColor Red
+}
+
+# 17. Дополнительные проверки
+Write-Host "`n17. Дополнительные проверки:" -ForegroundColor Green
+
+# Health checks
+Write-Host "Проверка health:" -ForegroundColor Yellow
+try {
+    $healthResponse = Invoke-RestMethod -Uri "http://arch.homework/health" -Method Get -TimeoutSec 10
+    Write-Host "✅ Health check: $($healthResponse)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Health check failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Detailed health
+Write-Host "Проверка detailed health:" -ForegroundColor Yellow
+try {
+    $detailedHealth = Invoke-RestMethod -Uri "http://arch.homework/health/detailed" -Method Get -TimeoutSec 10
+    Write-Host "✅ Detailed health: $($detailedHealth.status)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Detailed health failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Метрики
+Write-Host "Проверка метрик:" -ForegroundColor Yellow
+try {
+    $metrics = Invoke-WebRequest -Uri "http://arch.homework/metrics" -Method Get -TimeoutSec 10
+    Write-Host "✅ Метрики доступны ($($metrics.Content.Length) bytes)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Метрики недоступны: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# 18. Newman run test
+Write-Host "Newman run test:" -ForegroundColor Yellow
+newman run flowers-auth-tests.json --global-var "baseUrl=http://arch.homework" -r cli

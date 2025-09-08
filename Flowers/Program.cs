@@ -1,17 +1,55 @@
-﻿using Flowers.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+﻿using Flowers;
+using Flowers.Data;
+using Flowers.Models;
+
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
+
+using Prometheus;
+
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Flowers.Models;
-using Prometheus;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+
+// Добавляем после builder.Services.AddControllers();
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"] ?? "default-secret-key-at-least-32-characters-long";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
+// Добавляем хеширование паролей
+builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
 
 // Загрузка конфигурации из /app/config
 if (File.Exists("/app/config/appsettings.json"))
@@ -63,7 +101,83 @@ if (app.Environment.IsDevelopment())
 // Корневой endpoint
 app.MapGet("/", () => "Flowers API is running");
 
-// User endpoints group
+#region АУТЕНТИФИКАЦИЯ
+var authGroup = app.MapGroup("/auth");
+
+// Регистрация
+authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext context, IPasswordHasher passwordHasher, IConfiguration configuration) =>
+{
+    // Проверяем, существует ли пользователь
+    if (await context.AuthUsers.AnyAsync(u => u.Username == request.Username))
+    {
+        return Results.BadRequest("Username already exists");
+    }
+
+    if (await context.Users.AnyAsync(u => u.Email == request.Email))
+    {
+        return Results.BadRequest("Email already exists");
+    }
+
+    // Создаем пользователя
+    var user = new User
+    {
+        Username = request.Username,
+        FirstName = request.FirstName,
+        LastName = request.LastName,
+        Email = request.Email,
+        Phone = request.Phone
+    };
+
+    context.Users.Add(user);
+    await context.SaveChangesAsync();
+
+    // Создаем запись аутентификации
+    var authUser = new AuthUser
+    {
+        UserId = user.Id,
+        Username = request.Username,
+        PasswordHash = passwordHasher.HashPassword(request.Password)
+    };
+
+    context.AuthUsers.Add(authUser);
+    await context.SaveChangesAsync();
+
+    // Генерируем токен
+    var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
+
+    return Results.Ok(new AuthResponse
+    {
+        Token = token,
+        UserId = user.Id,
+        Username = user.Username
+    });
+});
+
+// Логин
+authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, IPasswordHasher passwordHasher, IConfiguration configuration) =>
+{
+    var authUser = await context.AuthUsers
+        .Include(au => au.User)
+        .FirstOrDefaultAsync(u => u.Username == request.Username);
+
+    if (authUser == null || !passwordHasher.VerifyPassword(request.Password, authUser.PasswordHash))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = Jwt.GenerateJwtToken(authUser.UserId, authUser.Username, configuration);
+
+    return Results.Ok(new AuthResponse
+    {
+        Token = token,
+        UserId = authUser.UserId,
+        Username = authUser.Username
+    });
+});
+#endregion
+
+#region ПОЛЬЗОВАТЕЛИ
+
 var userGroup = app.MapGroup("/user");
 
 // Получение всех пользователей
@@ -81,16 +195,30 @@ userGroup.MapPost("/", async (User user, AppDbContext context) =>
     return Results.Created($"/user/{user.Id}", user);
 });
 
-// Получение пользователя по ID
-userGroup.MapGet("/{userId:long}", async (long userId, AppDbContext context) =>
+// Получение пользователя по ID с проверкой авторизации
+userGroup.MapGet("/{userId:long}", async (long userId, AppDbContext context, HttpContext httpContext) =>
 {
+    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+    if (currentUserId != userId)
+    {
+        return Results.Forbid();
+    }
+
     var user = await context.Users.FindAsync(userId);
     return user is null ? Results.NotFound() : Results.Ok(user);
-});
+}).RequireAuthorization();
 
-// Обновление пользователя
-userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbContext context) =>
+// Обновление пользователя с проверкой авторизации
+userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbContext context, HttpContext httpContext) =>
 {
+    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+    if (currentUserId != userId)
+    {
+        return Results.Forbid();
+    }
+
     var user = await context.Users.FindAsync(userId);
     if (user is null) return Results.NotFound();
 
@@ -102,7 +230,32 @@ userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbCo
 
     await context.SaveChangesAsync();
     return Results.Ok(user);
-});
+}).RequireAuthorization();
+
+// Получение профиля текущего пользователя
+userGroup.MapGet("/profile", async (AppDbContext context, HttpContext httpContext) =>
+{
+    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    var user = await context.Users.FindAsync(currentUserId);
+    return user is null ? Results.NotFound() : Results.Ok(user);
+}).RequireAuthorization();
+
+// Обновление профиля текущего пользователя
+userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, HttpContext httpContext) =>
+{
+    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    var user = await context.Users.FindAsync(currentUserId);
+    if (user is null) return Results.NotFound();
+
+    if (updatedUser.Username != null) user.Username = updatedUser.Username;
+    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
+    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
+    if (updatedUser.Email != null) user.Email = updatedUser.Email;
+    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
+
+    await context.SaveChangesAsync();
+    return Results.Ok(user);
+}).RequireAuthorization();
 
 // Удаление пользователя
 userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) =>
@@ -114,6 +267,7 @@ userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) 
     await context.SaveChangesAsync();
     return Results.NoContent();
 });
+#endregion
 
 // Health checks endpoints
 app.MapHealthChecks("/health");
@@ -146,32 +300,3 @@ app.Use(async (context, next) =>
 app.UseHttpMetrics();
 app.MapMetrics();
 app.Run();
-
-// Кастомная проверка здоровья БД
-public class DbHealthCheck : IHealthCheck
-{
-    private readonly IServiceScopeFactory _scopeFactory;
-
-    public DbHealthCheck(IServiceScopeFactory scopeFactory)
-    {
-        _scopeFactory = scopeFactory;
-    }
-
-    public async Task<HealthCheckResult> CheckHealthAsync(
-        HealthCheckContext context,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            await dbContext.Database.CanConnectAsync(cancellationToken);
-            return HealthCheckResult.Healthy("Database is available");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy("Database is unavailable", ex);
-        }
-    }
-}

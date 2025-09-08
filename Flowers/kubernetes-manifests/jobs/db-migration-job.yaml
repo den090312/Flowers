@@ -42,11 +42,20 @@ spec:
                 phone VARCHAR(50) NOT NULL
               );"
             
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS auth_users (
+                  id BIGSERIAL PRIMARY KEY,
+                  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  username VARCHAR(255) UNIQUE NOT NULL,
+                  password_hash VARCHAR(255) NOT NULL
+              );"
+            
             echo "Database structure:"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\dt"
             
             echo "Table details:"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ users"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ auth_users"
             
             echo "Migration completed successfully!"
       restartPolicy: Never
