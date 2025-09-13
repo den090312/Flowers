@@ -619,4 +619,4 @@ try {
 
 # 18. Newman run test
 Write-Host "Newman run test:" -ForegroundColor Yellow
-newman run flowers-auth-tests.json --global-var "baseUrl=http://arch.homework" -r cli
+newman run flowers-auth-tests.json --global-var "baseUrl=http://arch.homework" -r cli --verbose

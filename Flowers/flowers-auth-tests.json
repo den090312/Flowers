@@ -65,6 +65,24 @@
               "pm.variables.set('randomEmail', randomEmail);"
             ]
           }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has token and user ID\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.token).to.not.be.undefined;",
+              "    pm.expect(jsonData.userId).to.not.be.undefined;",
+              "    pm.variables.set('user1_token', jsonData.token);",
+              "    pm.variables.set('user1_id', jsonData.userId);",
+              "});"
+            ]
+          }
         }
       ],
       "request": {
@@ -85,40 +103,10 @@
           "path": ["auth", "register"]
         }
       },
-      "response": [],
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test(\"Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
-              "pm.test(\"Response has token and user ID\", function () {",
-              "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.token).to.not.be.undefined;",
-              "    pm.expect(jsonData.userId).to.not.be.undefined;",
-              "    pm.variables.set('user1_token', jsonData.token);",
-              "    pm.variables.set('user1_id', jsonData.userId);",
-              "});"
-            ]
-          }
-        }
-      ]
+      "response": []
     },
     {
       "name": "Get Profile Without Token -> 401",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/user/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "user", "profile"]
-        }
-      },
-      "response": [],
       "event": [
         {
           "listen": "test",
@@ -130,10 +118,38 @@
             ]
           }
         }
-      ]
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/user/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["user", "profile"]
+        }
+      },
+      "response": []
     },
     {
       "name": "Login User 1",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has token\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.token).to.not.be.undefined;",
+              "    pm.variables.set('user1_token', jsonData.token);",
+              "});"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -152,43 +168,10 @@
           "path": ["auth", "login"]
         }
       },
-      "response": [],
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test(\"Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
-              "pm.test(\"Response has token\", function () {",
-              "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.token).to.not.be.undefined;",
-              "    pm.variables.set('user1_token', jsonData.token);",
-              "});"
-            ]
-          }
-        }
-      ]
+      "response": []
     },
     {
       "name": "Get Profile With Token -> 200",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{user1_token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/user/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "user", "profile"]
-        }
-      },
-      "response": [],
       "event": [
         {
           "listen": "test",
@@ -206,33 +189,25 @@
             ]
           }
         }
-      ]
-    },
-    {
-      "name": "Update Profile User 1",
+      ],
       "request": {
-        "method": "PUT",
+        "method": "GET",
         "header": [
           {
             "key": "Authorization",
             "value": "Bearer {{user1_token}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
           }
         ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"firstName\": \"NewName\",\n    \"lastName\": \"NewLastName\"\n}"
-        },
         "url": {
-          "raw": "{{baseUrl}}/api/user/profile",
+          "raw": "{{baseUrl}}/user/profile",
           "host": ["{{baseUrl}}"],
-          "path": ["api", "user", "profile"]
+          "path": ["user", "profile"]
         }
       },
-      "response": [],
+      "response": []
+    },
+    {
+      "name": "Update Profile User 1",
       "event": [
         {
           "listen": "test",
@@ -250,7 +225,30 @@
             ]
           }
         }
-      ]
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user1_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"firstName\": \"NewName\",\n    \"lastName\": \"NewLastName\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/user/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["user", "profile"]
+        }
+      },
+      "response": []
     },
     {
       "name": "Register User 2",
@@ -263,6 +261,24 @@
               "pm.variables.set('randomUsername2', randomUsername2);",
               "const randomEmail2 = 'user' + Math.floor(Math.random() * 10000) + '@example.com';",
               "pm.variables.set('randomEmail2', randomEmail2);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has token and user ID\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.token).to.not.be.undefined;",
+              "    pm.expect(jsonData.userId).to.not.be.undefined;",
+              "    pm.variables.set('user2_token', jsonData.token);",
+              "    pm.variables.set('user2_id', jsonData.userId);",
+              "});"
             ]
           }
         }
@@ -285,7 +301,10 @@
           "path": ["auth", "register"]
         }
       },
-      "response": [],
+      "response": []
+    },
+    {
+      "name": "Login User 2",
       "event": [
         {
           "listen": "test",
@@ -295,20 +314,15 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test(\"Response has token and user ID\", function () {",
+              "pm.test(\"Response has token\", function () {",
               "    var jsonData = pm.response.json();",
               "    pm.expect(jsonData.token).to.not.be.undefined;",
-              "    pm.expect(jsonData.userId).to.not.be.undefined;",
               "    pm.variables.set('user2_token', jsonData.token);",
-              "    pm.variables.set('user2_id', jsonData.userId);",
               "});"
             ]
           }
         }
-      ]
-    },
-    {
-      "name": "Login User 2",
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -327,43 +341,10 @@
           "path": ["auth", "login"]
         }
       },
-      "response": [],
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test(\"Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
-              "pm.test(\"Response has token\", function () {",
-              "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.token).to.not.be.undefined;",
-              "    pm.variables.set('user2_token', jsonData.token);",
-              "});"
-            ]
-          }
-        }
-      ]
+      "response": []
     },
     {
       "name": "User2 tries to access User1 profile -> 403",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{user2_token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/user/{{user1_id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "user", "{{user1_id}}"]
-        }
-      },
-      "response": [],
       "event": [
         {
           "listen": "test",
@@ -375,7 +356,22 @@
             ]
           }
         }
-      ]
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user2_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/user/{{user1_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["user", "{{user1_id}}"]
+        }
+      },
+      "response": []
     }
   ]
 }
