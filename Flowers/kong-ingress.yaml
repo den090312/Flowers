@@ -5,8 +5,8 @@ metadata:
   namespace: default
   annotations:
     konghq.com/strip-path: "true"
-    kubernetes.io/ingress.class: "kong"
 spec:
+  ingressClassName: kong
   rules:
   - host: arch.homework
     http:
@@ -20,6 +20,20 @@ spec:
               number: 80
       - path: /api
         pathType: Prefix
+        backend:
+          service:
+            name: flowers-service
+            port:
+              number: 80
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: flowers-service
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Exact
         backend:
           service:
             name: flowers-service
