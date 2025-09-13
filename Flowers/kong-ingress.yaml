@@ -18,7 +18,7 @@ spec:
             name: flowers-service
             port:
               number: 80
-      - path: /api
+      - path: /user
         pathType: Prefix
         backend:
           service:

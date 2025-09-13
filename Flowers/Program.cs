@@ -21,8 +21,8 @@ using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddCors();
+builder.Services.AddRouting();
 
 // Добавляем после builder.Services.AddControllers();
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

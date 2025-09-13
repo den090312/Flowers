@@ -513,37 +513,11 @@ try {
     }
 }
 
-# Создаем базовый маршрут для тестирования
-Write-Host "`nСоздаем тестовый маршрут для Kong..." -ForegroundColor Cyan
-$kongTestRoute = @"
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: kong-test-route
-  namespace: kong
-  annotations:
-    konghq.com/strip-path: "true"  # Другие Kong-специфичные аннотации остаются
-spec:
-  ingressClassName: kong  # ← Замена аннотации на это поле
-  rules:
-  - http:
-      paths:
-      - path: /test
-        pathType: Prefix
-        backend:
-          service:
-            name: kong-kong-proxy
-            port:
-              number: 80
-"@
-
-$kongTestRoute | kubectl apply -f -
-
 # Выводим информацию о сервисах
 Write-Host "`nТекущее состояние сервисов:" -ForegroundColor Green
 kubectl get svc -n kong
 kubectl get pods -n kong
-kubectl get ingress -n kong
+kubectl get ingress
 
 Write-Host "`nУстановка Kong завершена!" -ForegroundColor Green
 Write-Host "Kong API Gateway работает и готов" -ForegroundColor Cyan
@@ -604,7 +578,7 @@ try {
 if ($jwtToken) {
     Write-Host "`nПроверка профиля с токеном:" -ForegroundColor Yellow
     try {
-        $profileResponse = Invoke-RestMethod -Uri "http://arch.homework/api/user/profile" -Method Get -Headers @{"Authorization" = "Bearer $jwtToken"} -TimeoutSec 10
+        $profileResponse = Invoke-RestMethod -Uri "http://arch.homework/user/profile" -Method Get -Headers @{"Authorization" = "Bearer $jwtToken"} -TimeoutSec 10
         Write-Host "✅ Профиль получен! Username: $($profileResponse.username)" -ForegroundColor Green
     } catch {
         Write-Host "❌ Ошибка получения профиля: $($_.Exception.Message)" -ForegroundColor Red
