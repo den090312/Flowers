@@ -3,25 +3,25 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Flowers.Models
 {
-    [Table("users")]  // Явное указание таблицы в нижнем регистре
+    [Table("users")]
     public class User
     {
-        [Column("id")]  // Можно явно указать имена колонок
+        [Column("id")]
         public long Id { get; set; }
 
         [Column("username")]
-        public required string Username { get; set; }
+        public string? Username { get; set; }
 
         [Column("firstname")]
-        public required string FirstName { get; set; }
+        public string? FirstName { get; set; }
 
         [Column("lastname")]
-        public required string LastName { get; set; }
+        public string? LastName { get; set; }
 
         [Column("email")]
-        public required string Email { get; set; }
+        public string? Email { get; set; }
 
         [Column("phone")]
-        public required string Phone { get; set; }
+        public string? Phone { get; set; }
     }
 }

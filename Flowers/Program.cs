@@ -5,19 +5,20 @@ using Flowers.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
+
+using Microsoft.EntityFrameworkCore;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.EntityFrameworkCore;
 
 using Prometheus;
 
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -83,6 +84,11 @@ builder.Services.AddScoped<DbHealthCheck>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true; // Отключение автоматической валидации
+});
 
 var app = builder.Build();
 

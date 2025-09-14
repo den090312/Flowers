@@ -49,6 +49,11 @@
       "key": "randomEmail2",
       "value": "",
       "type": "string"
+    },
+	{
+      "key": "randomPhone",
+      "value": "",
+      "type": "int"
     }
   ],
   "item": [
@@ -62,7 +67,9 @@
               "const randomUsername = 'user_' + Math.floor(Math.random() * 10000);",
               "pm.variables.set('randomUsername', randomUsername);",
               "const randomEmail = 'user' + Math.floor(Math.random() * 10000) + '@example.com';",
-              "pm.variables.set('randomEmail', randomEmail);"
+              "pm.variables.set('randomEmail', randomEmail);",
+              "const randomPhone = Math.floor(Math.random() * 100);",
+              "pm.variables.set('randomPhone', randomPhone);"
             ]
           }
         },
@@ -206,50 +213,49 @@
       },
       "response": []
     },
-    {
-      "name": "Update Profile User 1",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test(\"Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
-              "pm.test(\"Profile updated successfully\", function () {",
-              "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.firstName).to.eql(\"NewName\");",
-              "    pm.expect(jsonData.lastName).to.eql(\"NewLastName\");",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{user1_token}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"firstName\": \"NewName\",\n    \"lastName\": \"NewLastName\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/user/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["user", "profile"]
-        }
-      },
-      "response": []
-    },
+	{
+	  "name": "Update Profile User 1",
+	  "event": [
+		{
+		  "listen": "test",
+		  "script": {
+			"exec": [
+			  "pm.test(\"Status code is 200\", function () {",
+			  "    pm.response.to.have.status(200);",
+			  "});",
+			  "",
+			  "pm.test(\"Profile updated successfully\", function () {",
+			  "    var jsonData = pm.response.json();",
+			  "    pm.expect(jsonData.id).to.eql(pm.variables.get('user1_id'));",
+			  "});"
+			]
+		  }
+		}
+	  ],
+	  "request": {
+		"method": "PUT",
+		"header": [
+		  {
+			"key": "Authorization",
+			"value": "Bearer {{user1_token}}"
+		  },
+		  {
+			"key": "Content-Type",
+			"value": "application/json"
+		  }
+		],
+		"body": {
+		  "mode": "raw",
+		  "raw": "{\n    \"firstName\": \"{{randomUsername}}\",\n    \"lastName\": \"{{randomUsername}}\"\n}"
+		},
+		"url": {
+		  "raw": "{{baseUrl}}/user/profile",
+		  "host": ["{{baseUrl}}"],
+		  "path": ["user", "profile"]
+		}
+	  },
+	  "response": []
+	},
     {
       "name": "Register User 2",
       "event": [
