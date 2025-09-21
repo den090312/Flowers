@@ -10,4 +10,4 @@ if ($PSScriptRoot) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 
-newman run flowers-order-tests.json --verbose
+newman run flowers-order-tests.json

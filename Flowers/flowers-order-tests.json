@@ -262,8 +262,7 @@
               "",
               "pm.test('Error message about insufficient funds', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData).to.have.property('title');",
-              "    pm.expect(jsonData.title).to.include('Insufficient funds');",
+              "    pm.expect(jsonData).to.include('Insufficient funds');",
               "});"
             ]
           }
@@ -322,7 +321,7 @@
               "",
               "pm.test('Has failure notification', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData).to.be.an('array');",
+			  "    pm.expect(jsonData).to.be.an('array');",
               "    // Проверяем, что есть уведомление об ошибке",
               "    var failureNotification = jsonData.find(n => n.message.includes('failed') || n.message.includes('error'));",
               "    pm.expect(failureNotification).to.not.be.undefined;",

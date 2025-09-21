@@ -239,13 +239,30 @@ var ordersGroup = app.MapGroup("/orders");
 ordersGroup.MapPost("/", async (CreateOrderRequest request, AppDbContext context, HttpContext httpContext) =>
 {
     var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    if (userId == default) return Results.NotFound("User not found");
+
+    var user = await context.Users.FindAsync(userId);
+    if (user == default) return Results.NotFound("User not found");
 
     // Проверяем баланс
     var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == userId);
     if (account == null) return Results.NotFound("Account not found");
 
     if (account.Balance < request.Amount)
+    {
+        // Отправляем уведомление
+        context.Notifications.Add(new Notification
+        {
+            UserId = userId,
+            Email = user.Email,
+            Message = "Order create failed. Insufficient funds",
+            CreatedAt = DateTime.UtcNow,
+            Status = "Not sent"
+        });
+        await context.SaveChangesAsync();
+
         return Results.BadRequest("Insufficient funds");
+    }
 
     // Снимаем деньги
     account.Balance -= request.Amount;
@@ -262,17 +279,14 @@ ordersGroup.MapPost("/", async (CreateOrderRequest request, AppDbContext context
     context.Orders.Add(order);
 
     // Отправляем уведомление
-    var user = await context.Users.FindAsync(userId);
-    var notification = new Notification
+    context.Notifications.Add(new Notification
     {
         UserId = userId,
         Email = user.Email,
         Message = $"Your order #{order.Id} for ${request.Amount} has been completed successfully!",
         CreatedAt = DateTime.UtcNow,
         Status = "Sent"
-    };
-
-    context.Notifications.Add(notification);
+    });
     await context.SaveChangesAsync();
 
     return Results.Ok(new { OrderId = order.Id, Status = order.Status });
