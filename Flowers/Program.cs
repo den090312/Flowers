@@ -1,4 +1,5 @@
-﻿using Flowers;
+﻿#region ЮЗИНГИ
+using Flowers;
 using Flowers.Data;
 using Flowers.Models;
 
@@ -19,7 +20,9 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+#endregion
 
+#region БАЗОВАЯ ИНИЦИАЛИЗАЦИЯ
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors();
@@ -93,6 +96,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 var app = builder.Build();
 
 app.UseCors(builder => builder.AllowAnyOrigin());
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -106,25 +111,21 @@ if (app.Environment.IsDevelopment())
 
 // Корневой endpoint
 app.MapGet("/", () => "Flowers API is running");
+#endregion
 
 #region АУТЕНТИФИКАЦИЯ
 var authGroup = app.MapGroup("/auth");
 
 // Регистрация
-authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext context, IPasswordHasher passwordHasher, IConfiguration configuration) =>
+authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext context,
+    IPasswordHasher passwordHasher, IConfiguration configuration) =>
 {
-    // Проверяем, существует ли пользователь
     if (await context.AuthUsers.AnyAsync(u => u.Username == request.Username))
-    {
         return Results.BadRequest("Username already exists");
-    }
 
     if (await context.Users.AnyAsync(u => u.Email == request.Email))
-    {
         return Results.BadRequest("Email already exists");
-    }
 
-    // Создаем пользователя
     var user = new User
     {
         Username = request.Username,
@@ -137,7 +138,6 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
     context.Users.Add(user);
     await context.SaveChangesAsync();
 
-    // Создаем запись аутентификации
     var authUser = new AuthUser
     {
         UserId = user.Id,
@@ -146,9 +146,16 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
     };
 
     context.AuthUsers.Add(authUser);
+
+    var account = new Account
+    {
+        UserId = user.Id,
+        Balance = 0
+    };
+    context.Accounts.Add(account);
+
     await context.SaveChangesAsync();
 
-    // Генерируем токен
     var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
 
     return Results.Ok(new AuthResponse
@@ -167,9 +174,7 @@ authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, I
         .FirstOrDefaultAsync(u => u.Username == request.Username);
 
     if (authUser == null || !passwordHasher.VerifyPassword(request.Password, authUser.PasswordHash))
-    {
         return Results.Unauthorized();
-    }
 
     var token = Jwt.GenerateJwtToken(authUser.UserId, authUser.Username, configuration);
 
@@ -179,6 +184,120 @@ authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, I
         UserId = authUser.UserId,
         Username = authUser.Username
     });
+});
+#endregion
+
+#region СЕРВИС БИЛЛИНГ
+var billingGroup = app.MapGroup("/bill");
+
+// Пополнение счета
+billingGroup.MapPost("/deposit", async (DepositRequest request, AppDbContext context) =>
+{
+    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == request.UserId);
+    if (account == null) return Results.NotFound("Account not found");
+
+    account.Balance += request.Amount;
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new { NewBalance = account.Balance });
+});
+
+// Снятие денег
+billingGroup.MapPost("/withdraw", async (WithdrawRequest request, AppDbContext context) =>
+{
+    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == request.UserId);
+    if (account == null) return Results.NotFound("Account not found");
+
+    if (account.Balance < request.Amount)
+        return Results.BadRequest("Insufficient funds");
+
+    account.Balance -= request.Amount;
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new { NewBalance = account.Balance });
+});
+
+// Получение баланса
+billingGroup.MapGet("/balance/{userId:long}", async (long userId, AppDbContext context) =>
+{
+    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == userId);
+    if (account == null) return Results.NotFound("Account not found");
+
+    return Results.Ok(new { Balance = account.Balance });
+});
+#endregion
+
+#region СЕРВИС ЗАКАЗОВ
+var ordersGroup = app.MapGroup("/orders");
+
+// Создание заказа
+ordersGroup.MapPost("/", async (CreateOrderRequest request, AppDbContext context, HttpContext httpContext) =>
+{
+    var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+    // Проверяем баланс
+    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == userId);
+    if (account == null) return Results.NotFound("Account not found");
+
+    if (account.Balance < request.Amount)
+        return Results.BadRequest("Insufficient funds");
+
+    // Снимаем деньги
+    account.Balance -= request.Amount;
+
+    // Создаем заказ
+    var order = new Order
+    {
+        UserId = userId,
+        Amount = request.Amount,
+        Status = "Completed",
+        CreatedAt = DateTime.UtcNow
+    };
+
+    context.Orders.Add(order);
+
+    // Отправляем уведомление
+    var user = await context.Users.FindAsync(userId);
+    var notification = new Notification
+    {
+        UserId = userId,
+        Email = user.Email,
+        Message = $"Your order #{order.Id} for ${request.Amount} has been completed successfully!",
+        CreatedAt = DateTime.UtcNow,
+        Status = "Sent"
+    };
+
+    context.Notifications.Add(notification);
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new { OrderId = order.Id, Status = order.Status });
+});
+
+// Получение заказов пользователя
+ordersGroup.MapGet("/", async (AppDbContext context, HttpContext httpContext) =>
+{
+    var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    var orders = await context.Orders
+        .Where(o => o.UserId == userId)
+        .OrderByDescending(o => o.CreatedAt)
+        .ToListAsync();
+
+    return Results.Ok(orders);
+});
+#endregion
+
+#region СЕРВИС УВЕДОМЛЕНИЙ
+var notifGroup = app.MapGroup("/notif");
+
+// Получение уведомлений пользователя
+notifGroup.MapGet("/notifications/{userId:long}", async (long userId, AppDbContext context) =>
+{
+    var notifications = await context.Notifications
+        .Where(n => n.UserId == userId)
+        .OrderByDescending(n => n.CreatedAt)
+        .ToListAsync();
+
+    return Results.Ok(notifications);
 });
 #endregion
 
@@ -275,6 +394,7 @@ userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) 
 });
 #endregion
 
+#region ПРОВЕРКА ЗДОРОВЬЯ
 // Health checks endpoints
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
@@ -296,13 +416,18 @@ app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
         await context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }
 });
+#endregion
 
+#region ОБРАБОТКА ОШИБОК
 app.Use(async (context, next) =>
 {
     Console.WriteLine($"Received {context.Request.Method} {context.Request.Path}");
     await next();
 });
+#endregion
 
+#region ЗАПУСК
 app.UseHttpMetrics();
 app.MapMetrics();
 app.Run();
+#endregion

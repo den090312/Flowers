@@ -49,6 +49,33 @@ spec:
                   username VARCHAR(255) UNIQUE NOT NULL,
                   password_hash VARCHAR(255) NOT NULL
               );"
+              
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS accounts (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+                UNIQUE(user_id)
+              );"
+            
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS orders (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                amount DECIMAL(18,2) NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );"
+            
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS notifications (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                email VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50) NOT NULL DEFAULT 'Sent'
+              );"
             
             echo "Database structure:"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\dt"
@@ -56,6 +83,9 @@ spec:
             echo "Table details:"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ users"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ auth_users"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ accounts"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ orders"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ notifications"
             
             echo "Migration completed successfully!"
       restartPolicy: Never
