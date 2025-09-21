@@ -1,0 +1,19 @@
+User          OrderService       BillingService      NotificationService
+  |                |                   |                     |
+  | Create Order   |                   |                     |
+  |--------------->|                   |                     |
+  |                |                   |                     |
+  |                | Debit Funds       |                     |
+  |                |------------------>|                     |
+  |                |                   |                     |
+  |                |       Response    |                     |
+  |                |<------------------|                     |
+  |                |                   |                     |
+  |                | Send Notification |                     |
+  |                |---------------------------------------->|
+  |                |                   |                     |
+  |                |       Response    |                     |
+  |                |<----------------------------------------|
+  |                |                   |                     |
+  | Order Response |                   |                     |
+  |<---------------|                   |                     |
