@@ -170,7 +170,7 @@ while ($true) {
 
 # Выводим логи job
 Write-Host "`nЛоги миграции:" -ForegroundColor Cyan
-kubectl logs -l job-name=db-migration
+kubectl logs job/db-migration
 
 # 7.2 Развертывание API
 Write-Host "`n7.2. Развертывание flowers-api..." -ForegroundColor Green

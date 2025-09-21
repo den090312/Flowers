@@ -1,21 +1,20 @@
-﻿namespace Flowers.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Flowers.Models
 {
+    [Table("accounts")]
     public class Account
     {
+        [Column("id")]
         public long Id { get; set; }
+        
+        [Column("user_id")]
         public long UserId { get; set; }
+        
+        [Column("balance")]
         public decimal Balance { get; set; }
-    }
 
-    public class DepositRequest
-    {
-        public long UserId { get; set; }
-        public decimal Amount { get; set; }
-    }
-
-    public class WithdrawRequest
-    {
-        public long UserId { get; set; }
-        public decimal Amount { get; set; }
+        [ForeignKey("UserId")]
+        public User? User { get; set; }
     }
 }

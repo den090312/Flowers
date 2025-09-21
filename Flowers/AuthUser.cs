@@ -2,7 +2,7 @@
 
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Flowers
+namespace Flowers.Models
 {
     [Table("auth_users")]
     public class AuthUser

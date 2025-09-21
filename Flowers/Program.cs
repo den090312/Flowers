@@ -5,6 +5,7 @@ using Flowers.Models;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 
@@ -102,12 +103,15 @@ app.UseAuthorization();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    app.UseDeveloperExceptionPage();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-//app.UseHttpsRedirection();
-//app.UseAuthorization();
+else
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
 
 // Корневой endpoint
 app.MapGet("/", () => "Flowers API is running");
@@ -146,14 +150,15 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
     };
 
     context.AuthUsers.Add(authUser);
+    await context.SaveChangesAsync();
 
     var account = new Account
     {
         UserId = user.Id,
         Balance = 0
     };
-    context.Accounts.Add(account);
 
+    context.Accounts.Add(account);
     await context.SaveChangesAsync();
 
     var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
@@ -200,7 +205,7 @@ billingGroup.MapPost("/deposit", async (DepositRequest request, AppDbContext con
     await context.SaveChangesAsync();
 
     return Results.Ok(new { NewBalance = account.Balance });
-});
+}).RequireAuthorization();
 
 // Снятие денег
 billingGroup.MapPost("/withdraw", async (WithdrawRequest request, AppDbContext context) =>
@@ -215,7 +220,7 @@ billingGroup.MapPost("/withdraw", async (WithdrawRequest request, AppDbContext c
     await context.SaveChangesAsync();
 
     return Results.Ok(new { NewBalance = account.Balance });
-});
+}).RequireAuthorization();
 
 // Получение баланса
 billingGroup.MapGet("/balance/{userId:long}", async (long userId, AppDbContext context) =>
@@ -224,7 +229,7 @@ billingGroup.MapGet("/balance/{userId:long}", async (long userId, AppDbContext c
     if (account == null) return Results.NotFound("Account not found");
 
     return Results.Ok(new { Balance = account.Balance });
-});
+}).RequireAuthorization();
 #endregion
 
 #region СЕРВИС ЗАКАЗОВ
@@ -271,7 +276,7 @@ ordersGroup.MapPost("/", async (CreateOrderRequest request, AppDbContext context
     await context.SaveChangesAsync();
 
     return Results.Ok(new { OrderId = order.Id, Status = order.Status });
-});
+}).RequireAuthorization();
 
 // Получение заказов пользователя
 ordersGroup.MapGet("/", async (AppDbContext context, HttpContext httpContext) =>
@@ -283,7 +288,7 @@ ordersGroup.MapGet("/", async (AppDbContext context, HttpContext httpContext) =>
         .ToListAsync();
 
     return Results.Ok(orders);
-});
+}).RequireAuthorization();
 #endregion
 
 #region СЕРВИС УВЕДОМЛЕНИЙ
@@ -298,7 +303,7 @@ notifGroup.MapGet("/notifications/{userId:long}", async (long userId, AppDbConte
         .ToListAsync();
 
     return Results.Ok(notifications);
-});
+}).RequireAuthorization();
 #endregion
 
 #region ПОЛЬЗОВАТЕЛИ
@@ -427,6 +432,18 @@ app.Use(async (context, next) =>
 #endregion
 
 #region ЗАПУСК
+app.UseExceptionHandler(a => a.Run(async context =>
+{
+    var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+    var exception = exceptionHandlerPathFeature.Error;
+
+    Console.WriteLine($"Unhandled exception: {exception.Message}");
+    Console.WriteLine($"Stack trace: {exception.StackTrace}");
+
+    context.Response.StatusCode = 500;
+    await context.Response.WriteAsync("An unexpected error occurred. Please try again later.");
+}));
+
 app.UseHttpMetrics();
 app.MapMetrics();
 app.Run();
