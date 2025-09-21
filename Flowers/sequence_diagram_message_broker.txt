@@ -1,0 +1,16 @@
+User          OrderService       BillingService      MessageBroker        NotificationService
+  |                |                   |                   |                       |
+  | Create Order   |                   |                   |                       |
+  |--------------->|                   |                   |                       |
+  |                | Process Order     |                   |                       |
+  |                |------------------>|                   |                       |
+  |                |                   | Debit Funds       |                       |
+  |                |                   |------------------>|                       |
+  |                |                   |                   | PaymentProcessed event|
+  |                |                   |                   |---------------------->|
+  |                |                   |                   |                       | Process Notification
+  |                |                   |                   |                       |------------------>|
+  |                | Order Response    |                   |                       |                   |
+  |<---------------|                   |                   |                       |                   |
+  |                |                   |                   |                       | Send Email/SMS    |
+  |                |                   |                   |                       |<------------------|

@@ -1,0 +1,22 @@
+User          OrderService       BillingService      NotificationService     MessageBroker
+  |                |                   |                     |                    |
+  | Create Order   |                   |                     |                    |
+  |--------------->|                   |                     |                    |
+  |                | Publish: OrderCreated                   |                    |
+  |                |----------------------------------------->                    |
+  |                |                   |                     |                    |
+  |                |                   | Subscribe: OrderCreated                  |
+  |                |                   |<-----------------------------------------|
+  |                |                   | Process Payment     |                    |
+  |                |                   |------------------->|                    |
+  |                |                   | Payment Result     |                    |
+  |                |                   |<-------------------|                    |
+  |                |                   | Publish: PaymentProcessed               |
+  |                |                   |----------------------------------------->|
+  |                |                   |                     |                    |
+  |                | Subscribe: PaymentProcessed             |                    |
+  |                |<-----------------------------------------                    |
+  |                | Send Notification |                     |                    |
+  |                |---------------------------------------->|
+  | Order Response |                   |                     |                    |
+  |<---------------|                   |                     |                    |
