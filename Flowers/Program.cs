@@ -145,6 +145,19 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
         Phone = request.Phone
     };
 
+    if (context.Users.Contains(user))
+    {
+        return Results.Conflict(new
+        {
+            Error = "User already exists",
+            Username = request.Username,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Email = request.Email,
+            Phone = request.Phone
+        });
+    }
+
     context.Users.Add(user);
 
     await context.SaveChangesAsync();
@@ -210,6 +223,7 @@ warehouseGroup.MapPost("/reserve", async (ReserveProductRequest request, IWareho
     try
     {
         var result = await service.ReserveProductAsync(request);
+
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -223,6 +237,7 @@ warehouseGroup.MapPost("/release", async (ReleaseProductRequest request, IWareho
     try
     {
         var result = await service.ReleaseProductAsync(request);
+
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -254,6 +269,7 @@ deliveryGroup.MapPost("/cancel", async (CancelCourierRequest request, IDeliveryS
     try
     {
         var result = await service.CancelCourierAsync(request);
+
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -295,6 +311,7 @@ billingGroup.MapGet("/balance/{userId}", async (long userId, IBillingService ser
     try
     {
         var balance = await service.GetBalanceAsync(userId);
+
         return Results.Ok(new { balance });
     }
     catch (Exception ex)
@@ -310,11 +327,14 @@ billingGroup.MapPost("/withdraw", async (WithdrawRequest request, IBillingServic
     try
     {
         var result = await service.WithdrawAsync(request);
+
         if (result)
         {
             var newBalance = await service.GetBalanceAsync(request.UserId);
+
             return Results.Ok(new { newBalance });
         }
+
         return Results.BadRequest(new { error = "Withdrawal failed - insufficient funds" });
     }
     catch (Exception ex)

@@ -26,6 +26,7 @@ namespace Flowers.Services
                     request.DeliverySlot.TimeOfDay > TimeSpan.FromHours(18))
                 {
                     _logger.LogWarning($"No couriers available for slot {request.DeliverySlot}");
+
                     return false;
                 }
 
@@ -33,15 +34,18 @@ namespace Flowers.Services
                 if (request.DeliverySlot.DayOfWeek == DayOfWeek.Sunday)
                 {
                     _logger.LogWarning($"No couriers available on Sunday");
+
                     return false;
                 }
 
                 _logger.LogInformation($"Courier reserved successfully for order {request.OrderId}");
+
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error reserving courier for order {request.OrderId}");
+
                 return false;
             }
         }
@@ -56,11 +60,13 @@ namespace Flowers.Services
                 await Task.Delay(100);
 
                 _logger.LogInformation($"Courier reservation cancelled successfully");
+
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error cancelling courier for order {request.OrderId}");
+
                 return false;
             }
         }

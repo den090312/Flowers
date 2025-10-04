@@ -24,21 +24,25 @@ namespace Flowers.Services
                 if (request.Quantity > 10) // Предположим, что у нас ограниченный запас
                 {
                     _logger.LogWarning($"Insufficient stock for product {request.ProductId}");
+
                     return false;
                 }
 
                 if (request.ProductId == "out_of_stock_product")
                 {
                     _logger.LogWarning($"Product {request.ProductId} is out of stock");
+
                     return false;
                 }
 
                 _logger.LogInformation($"Product {request.ProductId} reserved successfully");
+
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error reserving product {request.ProductId}");
+
                 return false;
             }
         }
@@ -53,11 +57,13 @@ namespace Flowers.Services
                 await Task.Delay(100);
 
                 _logger.LogInformation($"Product reservation released successfully");
+
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error releasing product reservation {request.ProductId}");
+
                 return false;
             }
         }

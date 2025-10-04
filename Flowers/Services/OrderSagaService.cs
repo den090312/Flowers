@@ -46,7 +46,7 @@ namespace Flowers.Services
 
                     try
                     {
-                        result = await CreateOrderAsyncRun(request, userId, transaction);
+                        result = await CreateOrderSagaAsync(request, userId, transaction);
 
                         await transaction.CommitAsync();
                     }
@@ -74,7 +74,7 @@ namespace Flowers.Services
             };
         }
 
-        private async Task<CreateOrderResponse?> CreateOrderAsyncRun(CreateOrderRequest request, long userId, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction)
+        private async Task<CreateOrderResponse?> CreateOrderSagaAsync(CreateOrderRequest request, long userId, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction)
         {
             // 1. Создание записи заказа
             (_orderId, Order order) = await CreateOrder(request, userId, _orderId);
@@ -206,6 +206,7 @@ namespace Flowers.Services
         private async Task<(bool flowControl, CreateOrderResponse? value)> SetBilling(CreateOrderRequest request, long userId, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, long orderId, Order order)
         {
             _logger.LogInformation($"Step 1: Processing payment for order {orderId}");
+
             var paymentSuccess = await _billingService.WithdrawAsync(new WithdrawRequest
             {
                 UserId = userId,
@@ -215,9 +216,12 @@ namespace Flowers.Services
             if (!paymentSuccess)
             {
                 _logger.LogWarning($"Payment failed for order {orderId}");
+                
                 order.Status = "Failed - Payment";
+                
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+                
                 return (flowControl: false, value: new CreateOrderResponse
                 {
                     OrderId = orderId,
@@ -227,6 +231,7 @@ namespace Flowers.Services
             }
 
             _logger.LogInformation($"Payment processed successfully for order {orderId}");
+
             return (flowControl: true, value: null);
         }
 
@@ -244,10 +249,13 @@ namespace Flowers.Services
             };
 
             _context.Orders.Add(order);
+
             await _context.SaveChangesAsync();
+            
             orderId = order.Id;
 
             _logger.LogInformation($"Saga started for order {orderId}");
+            
             return (orderId, order);
         }
     }
