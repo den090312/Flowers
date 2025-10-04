@@ -52,13 +52,17 @@ $POSTGRES_USER = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data
 $POSTGRES_PASSWORD = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_PASSWORD}')
 $POSTGRES_DB = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_DB}')
 
-helm upgrade --install postgresql bitnami/postgresql `
+helm upgrade --install postgresql oci://registry-1.docker.io/bitnamicharts/postgresql `
   --set global.postgresql.auth.postgresPassword=$POSTGRES_PASSWORD `
   --set global.postgresql.auth.username=$POSTGRES_USER `
   --set global.postgresql.auth.password=$POSTGRES_PASSWORD `
   --set global.postgresql.auth.database=$POSTGRES_DB `
   --set persistence.enabled=true `
-  --set persistence.size=1Gi
+  --set persistence.size=1Gi `
+  --set image.repository=bitnamilegacy/postgresql `
+  --set image.tag=17.6.0-debian-12-r4 `
+  --set volumePermissions.image.repository=bitnamilegacy/os-shell `
+  --set global.security.allowInsecureImages=true
   
 # 4. Проверка и установка Ingress Nginx Controller
 Write-Host "`n4. Проверка и установка Ingress Nginx Controller..." -ForegroundColor Cyan
