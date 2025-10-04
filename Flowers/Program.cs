@@ -1,7 +1,8 @@
 ﻿#region ЮЗИНГИ
-using Flowers;
 using Flowers.Data;
+using Flowers.Interfaces;
 using Flowers.Models;
+using Flowers.Services;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -55,6 +56,11 @@ builder.Services.AddAuthorization();
 
 // Добавляем хеширование паролей
 builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+
+builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IDeliveryService, DeliveryService>();
+builder.Services.AddScoped<IOrderSagaService, OrderSagaService>();
 
 // Загрузка конфигурации из /app/config
 if (File.Exists("/app/config/appsettings.json"))
@@ -192,104 +198,156 @@ authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, I
 });
 #endregion
 
+#region СЕРВИС СКЛАДА
+
+var warehouseGroup = app.MapGroup("/warehouse");
+
+warehouseGroup.MapPost("/reserve", async (ReserveProductRequest request, IWarehouseService service) =>
+{
+    try
+    {
+        var result = await service.ReserveProductAsync(request);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("ReserveProduct");
+
+warehouseGroup.MapPost("/release", async (ReleaseProductRequest request, IWarehouseService service) =>
+{
+    try
+    {
+        var result = await service.ReleaseProductAsync(request);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("ReleaseProduct");
+#endregion
+
+#region СЕРВИС ДОСТАВКИ
+var deliveryGroup = app.MapGroup("/delivery");
+
+deliveryGroup.MapPost("/reserve", async (ReserveCourierRequest request, IDeliveryService service) =>
+{
+    try
+    {
+        var result = await service.ReserveCourierAsync(request);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("ReserveCourier");
+
+deliveryGroup.MapPost("/cancel", async (CancelCourierRequest request, IDeliveryService service) =>
+{
+    try
+    {
+        var result = await service.CancelCourierAsync(request);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("CancelCourier");
+#endregion
+
 #region СЕРВИС БИЛЛИНГ
 var billingGroup = app.MapGroup("/bill");
 
 // Пополнение счета
-billingGroup.MapPost("/deposit", async (DepositRequest request, AppDbContext context) =>
+billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService service) =>
 {
-    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == request.UserId);
-    if (account == null) return Results.NotFound("Account not found");
-
-    account.Balance += request.Amount;
-    await context.SaveChangesAsync();
-
-    return Results.Ok(new { NewBalance = account.Balance });
-}).RequireAuthorization();
-
-// Снятие денег
-billingGroup.MapPost("/withdraw", async (WithdrawRequest request, AppDbContext context) =>
-{
-    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == request.UserId);
-    if (account == null) return Results.NotFound("Account not found");
-
-    if (account.Balance < request.Amount)
-        return Results.BadRequest("Insufficient funds");
-
-    account.Balance -= request.Amount;
-    await context.SaveChangesAsync();
-
-    return Results.Ok(new { NewBalance = account.Balance });
-}).RequireAuthorization();
+    try
+    {
+        var result = await service.DepositAsync(request);
+        if (result)
+        {
+            var newBalance = await service.GetBalanceAsync(request.UserId);
+            return Results.Ok(new { newBalance });
+        }
+        return Results.BadRequest(new { error = "Deposit failed" });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization()
+.WithName("Deposit");
 
 // Получение баланса
-billingGroup.MapGet("/balance/{userId:long}", async (long userId, AppDbContext context) =>
+billingGroup.MapGet("/balance/{userId}", async (long userId, IBillingService service) =>
 {
-    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == userId);
-    if (account == null) return Results.NotFound("Account not found");
+    try
+    {
+        var balance = await service.GetBalanceAsync(userId);
+        return Results.Ok(new { balance });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization()
+.WithName("GetBalance");
 
-    return Results.Ok(new { Balance = account.Balance });
-}).RequireAuthorization();
+// Снятие денег
+billingGroup.MapPost("/withdraw", async (WithdrawRequest request, IBillingService service) =>
+{
+    try
+    {
+        var result = await service.WithdrawAsync(request);
+        if (result)
+        {
+            var newBalance = await service.GetBalanceAsync(request.UserId);
+            return Results.Ok(new { newBalance });
+        }
+        return Results.BadRequest(new { error = "Withdrawal failed - insufficient funds" });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization()
+.WithName("Withdraw");
 #endregion
 
 #region СЕРВИС ЗАКАЗОВ
 var ordersGroup = app.MapGroup("/orders");
 
 // Создание заказа
-ordersGroup.MapPost("/", async (CreateOrderRequest request, AppDbContext context, HttpContext httpContext) =>
+ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context, IOrderSagaService sagaService) =>
 {
-    var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-    if (userId == default) return Results.NotFound("User not found");
-
-    var user = await context.Users.FindAsync(userId);
-    if (user == default) return Results.NotFound("User not found");
-
-    // Проверяем баланс
-    var account = await context.Accounts.FirstOrDefaultAsync(a => a.UserId == userId);
-    if (account == null) return Results.NotFound("Account not found");
-
-    if (account.Balance < request.Amount)
+    try
     {
-        // Отправляем уведомление
-        context.Notifications.Add(new Notification
+        // Получение userId из JWT токена
+        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
         {
-            UserId = userId,
-            Email = user.Email,
-            Message = "Order create failed. Insufficient funds",
-            CreatedAt = DateTime.UtcNow,
-            Status = "Not sent"
-        });
-        await context.SaveChangesAsync();
+            return Results.Unauthorized();
+        }
 
-        return Results.BadRequest("Insufficient funds");
+        var result = await sagaService.CreateOrderAsync(request, userId);
+
+        if (result.Status == "Completed")
+        {
+            return Results.Ok(result);
+        }
+        else
+        {
+            return Results.BadRequest(result);
+        }
     }
-
-    // Снимаем деньги
-    account.Balance -= request.Amount;
-
-    // Создаем заказ
-    var order = new Order
+    catch (Exception ex)
     {
-        UserId = userId,
-        Amount = request.Amount,
-        Status = "Completed",
-        CreatedAt = DateTime.UtcNow
-    };
-
-    context.Orders.Add(order);
-
-    // Отправляем уведомление
-    context.Notifications.Add(new Notification
-    {
-        UserId = userId,
-        Email = user.Email,
-        Message = $"Your order #{order.Id} for ${request.Amount} has been completed successfully!",
-        CreatedAt = DateTime.UtcNow,
-        Status = "Sent"
-    });
-    await context.SaveChangesAsync();
-
-    return Results.Ok(new { OrderId = order.Id, Status = order.Status });
+        return Results.BadRequest(new { error = ex.Message });
+    }
 }).RequireAuthorization();
 
 // Получение заказов пользователя

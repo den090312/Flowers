@@ -1,4 +1,4 @@
-﻿namespace Flowers
+﻿namespace Flowers.Interfaces
 {
     public interface IPasswordHasher
     {

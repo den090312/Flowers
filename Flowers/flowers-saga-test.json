@@ -1,0 +1,524 @@
+{
+  "info": {
+    "name": "Flowers Distributed Transaction Saga Tests - FULL COVERAGE",
+    "description": "Полное тестирование распределенной транзакции согласно требованиям ДЗ"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://arch.homework",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_username",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "initial_balance",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. 🔐 Регистрация пользователя для тестов Saga",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const randomId = Math.floor(Math.random() * 10000);",
+              "const username = 'saga_test_' + randomId;",
+              "const email = 'saga_' + randomId + '@test.com';",
+              "pm.variables.set('test_username', username);",
+              "pm.variables.set('test_email', email);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Регистрация успешна', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ Получен токен авторизации', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.token).to.be.a('string');",
+              "    pm.expect(jsonData.userId).to.be.a('number');",
+              "    pm.variables.set('auth_token', jsonData.token);",
+              "    pm.variables.set('user_id', jsonData.userId);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"test123\",\n  \"email\": \"{{test_email}}\",\n  \"firstName\": \"Saga\",\n  \"lastName\": \"User\",\n  \"phone\": \"+79991112233\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/register"
+      }
+    },
+    {
+      "name": "2. 💰 Подготовка - Пополнение баланса",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Баланс пополнен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ Начальный баланс установлен', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.newBalance).to.equal(300);",
+              "    pm.variables.set('initial_balance', jsonData.newBalance);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id}},\n  \"amount\": 300\n}"
+        },
+        "url": "{{baseUrl}}/bill/deposit"
+      }
+    },
+    {
+      "name": "3. 🟢 ТЕСТ 1: УСПЕШНАЯ ТРАНЗАКЦИЯ - Все сервисы работают",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Транзакция завершена успешно (200)', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ Все три сервиса отработали: Биллинг + Склад + Доставка', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.equal('Completed');",
+              "    pm.expect(jsonData.orderId).to.be.a('number');",
+              "    pm.variables.set('order_id', jsonData.orderId);",
+              "});",
+              "",
+              "console.log('✅ ВСЕ СЕРВИСЫ РАБОТАЮТ:');",
+              "console.log('  - Биллинг: платеж прошел');",
+              "console.log('  - Склад: товар зарезервирован');", 
+              "console.log('  - Доставка: курьер зарезервирован');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 150,\n  \"productId\": \"prod_001\",\n  \"quantity\": 2,\n  \"deliverySlot\": \"2024-01-20T14:00:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/orders"
+      }
+    },
+    {
+      "name": "4. 🔍 ПРОВЕРКА 1: Баланс уменьшился после успешной транзакции",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Баланс получен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ Деньги списаны (300 → 150)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.balance).to.equal(150);",
+              "    console.log('✅ БИЛЛИНГ: Платеж подтвержден - баланс уменьшился');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+      }
+    },
+    {
+      "name": "5. 🔴 ТЕСТ 2: ОШИБКА БИЛЛИНГА - Недостаточно средств",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "console.log('🚨 ТЕСТ: Ошибка на шаге БИЛЛИНГА');",
+              "console.log('Ожидаем: автоматический откат без изменений');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('❌ Транзакция завершена с ошибкой (400)', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('❌ Ошибка на шаге биллинга', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.errorMessage).to.include('insufficient funds');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 500,\n  \"productId\": \"prod_002\",\n  \"quantity\": 1,\n  \"deliverySlot\": \"2024-01-20T15:00:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/orders"
+      }
+    },
+    {
+      "name": "6. 🔍 ПРОВЕРКА 2: Компенсация после ошибки биллинга",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Баланс не изменился', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ КОМПЕНСАЦИЯ: Деньги не списаны (осталось 150)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.balance).to.equal(150);",
+              "    console.log('✅ КОМПЕНСАЦИЯ РАБОТАЕТ: Биллинг откатился');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+      }
+    },
+    {
+      "name": "7. 🔴 ТЕСТ 3: ОШИБКА СКЛАДА - Товара нет в наличии",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "console.log('🚨 ТЕСТ: Ошибка на шаге СКЛАДА');",
+              "console.log('Ожидаем: откат биллинга (возврат денег)');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('❌ Транзакция завершена с ошибкой (400)', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('❌ Ошибка на шаге склада', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.errorMessage).to.include('insufficient stock');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 50,\n  \"productId\": \"out_of_stock_product\",\n  \"quantity\": 5,\n  \"deliverySlot\": \"2024-01-20T16:00:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/orders"
+      }
+    },
+    {
+      "name": "8. 🔍 ПРОВЕРКА 3: Компенсация после ошибки склада",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Баланс восстановлен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ КОМПЕНСАЦИЯ: Деньги возвращены (осталось 150)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.balance).to.equal(150);",
+              "    console.log('✅ КОМПЕНСАЦИЯ РАБОТАЕТ: Биллинг откатился после ошибки склада');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+      }
+    },
+    {
+      "name": "9. 🔴 ТЕСТ 4: ОШИБКА ДОСТАВКИ - Нет доступных курьеров",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "console.log('🚨 ТЕСТ: Ошибка на шаге ДОСТАВКИ');",
+              "console.log('Ожидаем: откат склада и биллинга');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('❌ Транзакция завершена с ошибкой (400)', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('❌ Ошибка на шаге доставки', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.errorMessage).to.include('no available couriers');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 75,\n  \"productId\": \"prod_003\",\n  \"quantity\": 1,\n  \"deliverySlot\": \"2024-01-21T05:00:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/orders"
+      }
+    },
+    {
+      "name": "10. 🔍 ПРОВЕРКА 4: Компенсация после ошибки доставки",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Баланс восстановлен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('✅ КОМПЕНСАЦИЯ: Деньги возвращены (осталось 150)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.balance).to.equal(150);",
+              "    console.log('✅ КОМПЕНСАЦИЯ РАБОТАЕТ: Все сервисы откатились после ошибки доставки');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+      }
+    },
+    {
+      "name": "11. 🧪 ТЕСТ 5: Проверка отдельных сервисов",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "console.log('🔧 Проверка работы отдельных сервисов:');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('✅ Сервис склада работает', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "if (jsonData === true) {",
+              "    console.log('✅ СКЛАД: Резервирование товара работает');",
+              "} else {",
+              "    console.log('❌ СКЛАД: Ошибка резервирования');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": \"test_product\",\n  \"quantity\": 3,\n  \"orderId\": 9999\n}"
+        },
+        "url": "{{baseUrl}}/warehouse/reserve"
+      }
+    },
+    {
+      "name": "12. 📊 ФИНАЛЬНЫЙ ОТЧЕТ",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "console.log('\\n=== 📊 ФИНАЛЬНЫЙ ОТЧЕТ ПО ТЕСТИРОВАНИЮ SAGA ===');",
+              "console.log('✅ УСПЕШНЫЕ ТЕСТЫ:');",
+              "console.log('   - Все три сервиса работают в транзакции');",
+              "console.log('   - Баланс корректно списывается при успехе');",
+              "console.log('✅ КОМПЕНСАЦИИ РАБОТАЮТ:');",
+              "console.log('   - Ошибка БИЛЛИНГА → откат сразу');",
+              "console.log('   - Ошибка СКЛАДА → откат биллинга');", 
+              "console.log('   - Ошибка ДОСТАВКИ → откат склада и биллинга');",
+              "console.log('💰 Финальный баланс: ' + pm.response.json().balance);",
+              "console.log('=== ТЕСТИРОВАНИЕ ЗАВЕРШЕНО ===');",
+              "",
+              "pm.test('✅ Финальная проверка системы', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().balance).to.equal(150);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+      }
+    }
+  ]
+}

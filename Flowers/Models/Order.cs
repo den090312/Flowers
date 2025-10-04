@@ -20,6 +20,15 @@ namespace Flowers.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("product_id")]
+        public string? ProductId { get; set; }
+
+        [Column("quantity")]
+        public int Quantity { get; set; }
+
+        [Column("delivery_slot")]
+        public DateTime? DeliverySlot { get; set; }
+
         [ForeignKey("UserId")]
         public User? User { get; set; }
     }
@@ -27,5 +36,15 @@ namespace Flowers.Models
     public class CreateOrderRequest
     {
         public decimal Amount { get; set; }
+        public string ProductId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public DateTime DeliverySlot { get; set; }
+    }
+
+    public class CreateOrderResponse
+    {
+        public long OrderId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
     }
 }

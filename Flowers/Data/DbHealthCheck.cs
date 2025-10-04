@@ -1,8 +1,6 @@
-﻿using Flowers.Data;
+﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-
-namespace Flowers
+namespace Flowers.Data
 {
     public class DbHealthCheck : IHealthCheck
     {
