@@ -146,6 +146,7 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
     };
 
     context.Users.Add(user);
+
     await context.SaveChangesAsync();
 
     var authUser = new AuthUser
@@ -156,6 +157,7 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
     };
 
     context.AuthUsers.Add(authUser);
+
     await context.SaveChangesAsync();
 
     var account = new Account
@@ -165,6 +167,7 @@ authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext cont
     };
 
     context.Accounts.Add(account);
+
     await context.SaveChangesAsync();
 
     var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
@@ -237,6 +240,7 @@ deliveryGroup.MapPost("/reserve", async (ReserveCourierRequest request, IDeliver
     try
     {
         var result = await service.ReserveCourierAsync(request);
+
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -268,11 +272,14 @@ billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService 
     try
     {
         var result = await service.DepositAsync(request);
+
         if (result)
         {
             var newBalance = await service.GetBalanceAsync(request.UserId);
+
             return Results.Ok(new { newBalance });
         }
+        
         return Results.BadRequest(new { error = "Deposit failed" });
     }
     catch (Exception ex)
@@ -328,21 +335,16 @@ ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context,
     {
         // Получение userId из JWT токена
         var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+
         if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
-        {
             return Results.Unauthorized();
-        }
 
         var result = await sagaService.CreateOrderAsync(request, userId);
 
-        if (result.Status == "Completed")
-        {
+        if (result?.Status == "Completed")
             return Results.Ok(result);
-        }
         else
-        {
             return Results.BadRequest(result);
-        }
     }
     catch (Exception ex)
     {
@@ -386,6 +388,7 @@ var userGroup = app.MapGroup("/user");
 userGroup.MapGet("/", async (AppDbContext context) =>
 {
     var users = await context.Users.ToListAsync();
+
     return Results.Ok(users);
 });
 
@@ -393,7 +396,9 @@ userGroup.MapGet("/", async (AppDbContext context) =>
 userGroup.MapPost("/", async (User user, AppDbContext context) =>
 {
     context.Users.Add(user);
+
     await context.SaveChangesAsync();
+
     return Results.Created($"/user/{user.Id}", user);
 });
 
@@ -403,11 +408,10 @@ userGroup.MapGet("/{userId:long}", async (long userId, AppDbContext context, Htt
     var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
     if (currentUserId != userId)
-    {
         return Results.Forbid();
-    }
 
     var user = await context.Users.FindAsync(userId);
+
     return user is null ? Results.NotFound() : Results.Ok(user);
 }).RequireAuthorization();
 
@@ -417,12 +421,12 @@ userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbCo
     var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
     if (currentUserId != userId)
-    {
         return Results.Forbid();
-    }
 
     var user = await context.Users.FindAsync(userId);
-    if (user is null) return Results.NotFound();
+
+    if (user is null) 
+        return Results.NotFound();
 
     if (updatedUser.Username != null) user.Username = updatedUser.Username;
     if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
@@ -431,6 +435,7 @@ userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbCo
     if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
 
     await context.SaveChangesAsync();
+
     return Results.Ok(user);
 }).RequireAuthorization();
 
@@ -438,7 +443,9 @@ userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbCo
 userGroup.MapGet("/profile", async (AppDbContext context, HttpContext httpContext) =>
 {
     var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    
     var user = await context.Users.FindAsync(currentUserId);
+    
     return user is null ? Results.NotFound() : Results.Ok(user);
 }).RequireAuthorization();
 
@@ -446,8 +453,11 @@ userGroup.MapGet("/profile", async (AppDbContext context, HttpContext httpContex
 userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, HttpContext httpContext) =>
 {
     var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    
     var user = await context.Users.FindAsync(currentUserId);
-    if (user is null) return Results.NotFound();
+    
+    if (user is null) 
+        return Results.NotFound();
 
     if (updatedUser.Username != null) user.Username = updatedUser.Username;
     if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
@@ -456,6 +466,7 @@ userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, Http
     if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
 
     await context.SaveChangesAsync();
+
     return Results.Ok(user);
 }).RequireAuthorization();
 
@@ -463,10 +474,14 @@ userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, Http
 userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) =>
 {
     var user = await context.Users.FindAsync(userId);
-    if (user is null) return Results.NotFound();
+
+    if (user is null) 
+        return Results.NotFound();
 
     context.Users.Remove(user);
+
     await context.SaveChangesAsync();
+    
     return Results.NoContent();
 });
 #endregion
@@ -479,6 +494,7 @@ app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
     ResponseWriter = async (context, report) =>
     {
         context.Response.ContentType = "application/json";
+
         var response = new
         {
             Status = report.Status.ToString(),
@@ -490,6 +506,7 @@ app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
             }),
             Duration = report.TotalDuration
         };
+
         await context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }
 });
@@ -499,6 +516,7 @@ app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
 app.Use(async (context, next) =>
 {
     Console.WriteLine($"Received {context.Request.Method} {context.Request.Path}");
+
     await next();
 });
 #endregion
@@ -507,12 +525,13 @@ app.Use(async (context, next) =>
 app.UseExceptionHandler(a => a.Run(async context =>
 {
     var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
-    var exception = exceptionHandlerPathFeature.Error;
+    var exception = exceptionHandlerPathFeature?.Error;
 
-    Console.WriteLine($"Unhandled exception: {exception.Message}");
-    Console.WriteLine($"Stack trace: {exception.StackTrace}");
+    Console.WriteLine($"Unhandled exception: {exception?.Message}");
+    Console.WriteLine($"Stack trace: {exception?.StackTrace}");
 
     context.Response.StatusCode = 500;
+
     await context.Response.WriteAsync("An unexpected error occurred. Please try again later.");
 }));
 

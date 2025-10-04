@@ -4,6 +4,6 @@ namespace Flowers.Interfaces
 {
     public interface IOrderSagaService
     {
-        Task<CreateOrderResponse> CreateOrderAsync(CreateOrderRequest request, long userId);
+        Task<CreateOrderResponse?> CreateOrderAsync(CreateOrderRequest request, long userId);
     }
 }
