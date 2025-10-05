@@ -13,13 +13,13 @@ Write-Host "Автоматический переход в папку скрип
 Set-Location $scriptDir
 
 # 1. Очистка
-Write-Host "1. Очистка старых релизов..." -ForegroundColor Yellow
+Write-Host "`n1. Очистка старых релизов..." -ForegroundColor Yellow
 helm uninstall postgresql 2>$null
 kubectl delete -f .\kubernetes-manifests\ --recursive 2>$null
 kubectl delete pvc --all 2>$null
 
 # 2. Применение манифестов
-Write-Host "2. Применение манифестов..." -ForegroundColor Yellow
+Write-Host "`n2. Применение манифестов..." -ForegroundColor Yellow
 $manifests = @(
     ".\kubernetes-manifests\configmaps\",
     ".\kubernetes-manifests\secrets\",
@@ -48,6 +48,12 @@ function Decode-Base64 {
     [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($encoded))
 }
 
+# 4. Установка секретов
+Write-Host "`n4. Установка секретов..." -ForegroundColor Cyan
+kubectl apply -f .\kubernetes-manifests\secrets\db-secret.yaml
+kubectl get secrets -n default
+kubectl describe secret db-secret -n default
+
 $POSTGRES_USER = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_USER}')
 $POSTGRES_PASSWORD = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_PASSWORD}')
 $POSTGRES_DB = Decode-Base64 (kubectl get secret db-secret -o jsonpath='{.data.POSTGRES_DB}')
@@ -64,8 +70,8 @@ helm upgrade --install postgresql oci://registry-1.docker.io/bitnamicharts/postg
   --set volumePermissions.image.repository=bitnamilegacy/os-shell `
   --set global.security.allowInsecureImages=true
   
-# 4. Проверка и установка Ingress Nginx Controller
-Write-Host "`n4. Проверка и установка Ingress Nginx Controller..." -ForegroundColor Cyan
+# 5. Проверка и установка Ingress Nginx Controller
+Write-Host "`n5. Проверка и установка Ingress Nginx Controller..." -ForegroundColor Cyan
 
 # Проверяем, установлен ли уже ingress-nginx
 $ingressInstalled = helm list -n ingress-nginx | findstr "ingress-nginx"
@@ -112,8 +118,8 @@ if (-not $ingressInstalled) {
     Write-Host "Ingress Nginx Controller уже установлен, пропускаем установку" -ForegroundColor Green
 }
 
-# 5. Ожидание БД
-Write-Host "`n5. Ожидание БД..." -ForegroundColor Cyan
+# 6. Ожидание БД
+Write-Host "`n6. Ожидание БД..." -ForegroundColor Cyan
 $timeout = 180
 $startTime = Get-Date
 $dbReady = $false
@@ -139,8 +145,8 @@ while (-not $dbReady) {
     Write-Host "Ожидание..." -ForegroundColor Gray
 }
 
-# 6. Запуск job для миграции БД
-Write-Host "`n6. Запуск job для миграции БД..." -ForegroundColor Cyan
+# 7. Запуск job для миграции БД
+Write-Host "`n7. Запуск job для миграции БД..." -ForegroundColor Cyan
 
 # Применяем job
 kubectl apply -f .\kubernetes-manifests\jobs\db-migration-job.yaml
@@ -180,6 +186,7 @@ kubectl logs job/db-migration
 Write-Host "`n7.2. Развертывание flowers-api..." -ForegroundColor Green
 
 # 7.3. Сборка образа
+Write-Host "`n7.3. Сборка образа..." -ForegroundColor Green
 try {
     docker build -t flowers-api:latest .
     if (-not $?) {
@@ -191,7 +198,7 @@ try {
 }
 
 # 8. Проверка запуска API и вывод логов
-Write-Host "`n7. Проверка flowers-api и вывод логов..." -ForegroundColor Cyan
+Write-Host "`n8. Проверка flowers-api и вывод логов..." -ForegroundColor Cyan
 $timeout = 120
 $startTime = Get-Date
 $apiReady = $false
@@ -243,11 +250,11 @@ while (-not $apiReady) {
 }
 
 # 9. Финальные проверки
-Write-Host "`n8. Итоговый статус:" -ForegroundColor Green
+Write-Host "`n9. Итоговый статус:" -ForegroundColor Green
 kubectl get pods,svc,ingress
 
 # 10. Проверка доступности API
-Write-Host "`n9. Проверка доступности API..." -ForegroundColor Cyan
+Write-Host "`n10. Проверка доступности API..." -ForegroundColor Cyan
 $ingressHost = kubectl get ingress -o jsonpath='{.items[0].spec.rules[0].host}'
 $apiUrl = "http://$ingressHost/"
 

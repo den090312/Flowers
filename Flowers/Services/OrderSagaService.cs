@@ -3,6 +3,8 @@ using Flowers.Interfaces;
 using Flowers.Models;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 
 using Npgsql.Internal;
 
@@ -34,35 +36,130 @@ namespace Flowers.Services
         public async Task<CreateOrderResponse?> CreateOrderAsync(CreateOrderRequest request, long userId)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
-
             var result = new CreateOrderResponse();
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
 
-            await strategy.ExecuteAsync(
-                async () =>
+            await strategy.ExecuteAsync(async () =>
+            {
+                try
                 {
-                    using var transaction = await _context.Database.BeginTransactionAsync();
-
+                    transaction = await _context.Database.BeginTransactionAsync();
                     _orderId = 0;
 
-                    try
-                    {
-                        result = await CreateOrderSagaAsync(request, userId, transaction);
+                    result = await CreateOrderSagaAsync(request, userId, transaction);
 
-                        await transaction.CommitAsync();
+                    if (result?.Status == "Completed")
+                    {
+                        if (IsTransactionActive(transaction))
+                        {
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Transaction was already completed before commit attempt");
+                            result = new CreateOrderResponse
+                            {
+                                OrderId = _orderId,
+                                Status = "Failed",
+                                ErrorMessage = "Transaction consistency error"
+                            };
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        result = Catch(transaction, ex);
+                        result = new CreateOrderResponse
+                        {
+                            OrderId = _orderId,
+                            Status = "Failed",
+                            ErrorMessage = result?.ErrorMessage
+                        };
 
-                        await transaction.RollbackAsync();
+                        await SafeRollbackAsync(transaction);
                     }
                 }
-            );
+                catch (Exception ex)
+                {
+                    await SafeRollbackAsync(transaction);
+                    result = new CreateOrderResponse
+                    {
+                        OrderId = _orderId,
+                        Status = "Failed",
+                        ErrorMessage = GetUserFriendlyErrorMessage(ex)
+                    };
+                }
+                finally
+                {
+                    await SafeDisposeTransactionAsync(transaction);
+                }
+            });
 
             return result;
         }
 
-        private CreateOrderResponse Catch(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, Exception ex)
+        private async Task SafeRollbackAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction)
+        {
+            if (transaction == null) return;
+
+            try
+            {
+                if (IsTransactionActive(transaction))
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogInformation("Transaction rolled back successfully");
+                }
+                else
+                {
+                    _logger.LogWarning("Attempted to rollback already completed transaction");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rollback transaction");
+            }
+        }
+
+        private bool IsTransactionActive(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction)
+        {
+            try
+            {
+                var dbTransaction = transaction.GetDbTransaction();
+
+                return dbTransaction?.Connection?.State == System.Data.ConnectionState.Open;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to check transaction status");
+                return false;
+            }
+        }
+
+        private async Task SafeDisposeTransactionAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction)
+        {
+            if (transaction == null) return;
+
+            try
+            {
+                await transaction.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to dispose transaction");
+            }
+        }
+
+        private string GetUserFriendlyErrorMessage(Exception ex)
+        {
+            return ex.Message.Contains("NpgsqlTransaction has completed", StringComparison.OrdinalIgnoreCase)
+                ? "Transaction processing error occurred"
+                : ex.Message;
+        }
+
+        private CreateOrderResponse Catch(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, Exception ex, CreateOrderResponse? result)
         {
             _logger.LogError(ex, $"Saga failed for order {_orderId}");
 
@@ -70,7 +167,7 @@ namespace Flowers.Services
             {
                 OrderId = _orderId,
                 Status = "Failed",
-                ErrorMessage = ex.Message
+                ErrorMessage = result?.ErrorMessage ?? ex.Message
             };
         }
 
@@ -83,7 +180,7 @@ namespace Flowers.Services
             (bool flowControl, CreateOrderResponse? value) = await SetBilling(request, userId, transaction, _orderId, order);
 
             if (!flowControl)
-                return value;
+                return (value);
 
             // 3. Шаг 2: Резервирование товара (Склад)
             (flowControl, value) = await ReserveProduct(request, userId, transaction, _orderId, order);
@@ -98,14 +195,12 @@ namespace Flowers.Services
                 return value;
 
             // 5. Финальное обновление статуса заказа
-            return await UpdateOrderStatus(transaction, _orderId, order);
+            return UpdateOrderStatus(transaction, _orderId, order);
         }
 
-        private async Task<CreateOrderResponse> UpdateOrderStatus(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, long orderId, Order order)
+        private CreateOrderResponse UpdateOrderStatus(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, long orderId, Order order)
         {
             order.Status = "Completed";
-
-            await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Saga completed successfully for order {orderId}");
 
@@ -147,9 +242,6 @@ namespace Flowers.Services
 
                 order.Status = "Failed - Delivery";
 
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
                 return (flowControl: false, value: new CreateOrderResponse
                 {
                     OrderId = orderId,
@@ -187,9 +279,6 @@ namespace Flowers.Services
 
                 order.Status = "Failed - Warehouse";
 
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
                 return (flowControl: false, value: new CreateOrderResponse
                 {
                     OrderId = orderId,
@@ -213,26 +302,23 @@ namespace Flowers.Services
                 Amount = request.Amount
             });
 
-            if (!paymentSuccess)
+            if (paymentSuccess)
             {
-                _logger.LogWarning($"Payment failed for order {orderId}");
-                
-                order.Status = "Failed - Payment";
-                
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                
-                return (flowControl: false, value: new CreateOrderResponse
-                {
-                    OrderId = orderId,
-                    Status = "Failed",
-                    ErrorMessage = "Payment failed: insufficient funds"
-                });
+                _logger.LogInformation($"Payment processed successfully for order {orderId}");
+
+                return (flowControl: true, value: null);
             }
 
-            _logger.LogInformation($"Payment processed successfully for order {orderId}");
+            _logger.LogWarning($"Payment failed for order {orderId}");
 
-            return (flowControl: true, value: null);
+            order.Status = "Failed - Payment";
+
+            return (flowControl: false, value: new CreateOrderResponse
+            {
+                OrderId = orderId,
+                Status = "Failed",
+                ErrorMessage = "Payment failed: insufficient funds"
+            });
         }
 
         private async Task<(long orderId, Order order)> CreateOrder(CreateOrderRequest request, long userId, long orderId)

@@ -1,0 +1,1 @@
+Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.GetValue("DisplayName") -like "*Docker*"} | ForEach-Object { Remove-Item -Path $_.PSPath -Recurse -Force }

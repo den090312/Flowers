@@ -22,6 +22,8 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+
+using static System.Runtime.InteropServices.JavaScript.JSType;
 #endregion
 
 #region БАЗОВАЯ ИНИЦИАЛИЗАЦИЯ
@@ -351,6 +353,8 @@ var ordersGroup = app.MapGroup("/orders");
 // Создание заказа
 ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context, IOrderSagaService sagaService) =>
 {
+    var result = new CreateOrderResponse();
+
     try
     {
         // Получение userId из JWT токена
@@ -359,16 +363,16 @@ ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context,
         if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
             return Results.Unauthorized();
 
-        var result = await sagaService.CreateOrderAsync(request, userId);
+        result = await sagaService.CreateOrderAsync(request, userId);
 
         if (result?.Status == "Completed")
             return Results.Ok(result);
         else
-            return Results.BadRequest(result);
+            return Results.BadRequest(new { error = result?.ErrorMessage ?? "" });
     }
     catch (Exception ex)
     {
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.BadRequest(new { error = result?.ErrorMessage ?? ex.Message ?? "" });
     }
 }).RequireAuthorization();
 

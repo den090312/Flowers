@@ -227,7 +227,7 @@
               "",
               "pm.test('❌ Ошибка на шаге биллинга', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.errorMessage).to.include('insufficient funds');",
+              "    pm.expect(jsonData.errorMessage || jsonData.error || jsonData.message || '').to.include('insufficient funds');",
               "});"
             ]
           }
@@ -305,7 +305,7 @@
               "",
               "pm.test('❌ Ошибка на шаге склада', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.errorMessage).to.include('insufficient stock');",
+              "    pm.expect(jsonData.errorMessage || jsonData.error || jsonData.message || '').to.include('insufficient stock');",
               "});"
             ]
           }
@@ -383,7 +383,7 @@
               "",
               "pm.test('❌ Ошибка на шаге доставки', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.errorMessage).to.include('no available couriers');",
+              "    pm.expect(jsonData.errorMessage || jsonData.error || jsonData.message || '').to.include('no available couriers');",
               "});"
             ]
           }
