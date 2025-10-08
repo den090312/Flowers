@@ -35,12 +35,28 @@ namespace Flowers.Services
 
         public async Task<CreateOrderResponse?> CreateOrderAsync(CreateOrderRequest request, long userId)
         {
+            var sagaIdempotencyKey = Guid.NewGuid().ToString();
+
             var strategy = _context.Database.CreateExecutionStrategy();
             var result = new CreateOrderResponse();
-            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+            IDbContextTransaction? transaction = null;
 
             await strategy.ExecuteAsync(async () =>
             {
+                var existingSaga = await _context.CompletedSagas
+                    .FirstOrDefaultAsync(s => s.IdempotencyKey == sagaIdempotencyKey);
+
+                if (existingSaga != null)
+                {
+                    result = new CreateOrderResponse
+                    {
+                        OrderId = existingSaga.OrderId,
+                        Status = existingSaga?.Status ?? string.Empty,
+                        ErrorMessage = existingSaga?.ErrorMessage
+                    };
+                    return;
+                }
+
                 try
                 {
                     transaction = await _context.Database.BeginTransactionAsync();
@@ -97,7 +113,7 @@ namespace Flowers.Services
             return result;
         }
 
-        private async Task SafeRollbackAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction)
+        private async Task SafeRollbackAsync(IDbContextTransaction? transaction)
         {
             if (transaction == null) return;
 
@@ -119,7 +135,7 @@ namespace Flowers.Services
             }
         }
 
-        private bool IsTransactionActive(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction)
+        private bool IsTransactionActive(IDbContextTransaction transaction)
         {
             try
             {
@@ -138,7 +154,7 @@ namespace Flowers.Services
             }
         }
 
-        private async Task SafeDisposeTransactionAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction)
+        private async Task SafeDisposeTransactionAsync(IDbContextTransaction? transaction)
         {
             if (transaction == null) return;
 
@@ -159,7 +175,7 @@ namespace Flowers.Services
                 : ex.Message;
         }
 
-        private CreateOrderResponse Catch(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, Exception ex, CreateOrderResponse? result)
+        private CreateOrderResponse Catch(IDbContextTransaction transaction, Exception ex, CreateOrderResponse? result)
         {
             _logger.LogError(ex, $"Saga failed for order {_orderId}");
 
@@ -292,25 +308,44 @@ namespace Flowers.Services
             return (flowControl: true, value: null);
         }
 
-        private async Task<(bool flowControl, CreateOrderResponse? value)> SetBilling(CreateOrderRequest request, long userId, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, long orderId, Order order)
+        private async Task<(bool flowControl, CreateOrderResponse? value)> SetBilling(CreateOrderRequest request, long userId, IDbContextTransaction transaction, long orderId, Order order)
         {
             _logger.LogInformation($"Step 1: Processing payment for order {orderId}");
+
+            // Генерируем ключ идемпотентности для платежа
+            var paymentIdempotencyKey = $"payment_{orderId}_{userId}";
+
+            // Проверяем, не был ли уже создан заказ с таким платежом
+            var existingPayment = await _context.PaymentTransactions
+                .FirstOrDefaultAsync(p => p.OrderId == orderId && p.UserId == userId);
+
+            if (existingPayment != null)
+            {
+                // Если платеж уже был выполнен, возвращаем его результат
+                return (flowControl: existingPayment.Status == "Completed",
+                        value: existingPayment.Status == "Completed" ? null : new CreateOrderResponse
+                        {
+                            OrderId = orderId,
+                            Status = "Failed",
+                            ErrorMessage = "Payment already processed and failed"
+                        });
+            }
 
             var paymentSuccess = await _billingService.WithdrawAsync(new WithdrawRequest
             {
                 UserId = userId,
-                Amount = request.Amount
+                Amount = request.Amount,
+                IdempotencyKey = paymentIdempotencyKey,
+                OrderId = orderId // Добавляем OrderId для связи
             });
 
             if (paymentSuccess)
             {
                 _logger.LogInformation($"Payment processed successfully for order {orderId}");
-
                 return (flowControl: true, value: null);
             }
 
             _logger.LogWarning($"Payment failed for order {orderId}");
-
             order.Status = "Failed - Payment";
 
             return (flowControl: false, value: new CreateOrderResponse

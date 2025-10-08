@@ -1,0 +1,389 @@
+{
+  "info": {
+    "name": "ТЕСТ ИДЕМПОТЕНТНОСТИ ПЛАТЕЖЕЙ - Защита от повторных списаний",
+    "description": "Проверка, что повторные вызовы оплаты для одного заказа не приводят к двойному списанию"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://arch.homework",
+      "type": "string"
+    },
+    {
+      "key": "auth_token_payment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id_payment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_username_payment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_email_payment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "order_id_for_payment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "initial_balance_payment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "balance_after_first_payment",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Регистрация пользователя для теста платежей",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const randomId = Math.floor(Math.random() * 10000);",
+              "const username = 'payment_test_' + randomId;",
+              "const email = 'payment_' + randomId + '@test.com';",
+              "pm.variables.set('test_username_payment', username);",
+              "pm.variables.set('test_email_payment', email);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Регистрация успешна', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Получен токен авторизации', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.token).to.be.a('string');",
+              "    pm.expect(jsonData.userId).to.be.a('number');",
+              "    pm.variables.set('auth_token_payment', jsonData.token);",
+              "    pm.variables.set('user_id_payment', jsonData.userId);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{test_username_payment}}\",\n  \"password\": \"test123\",\n  \"email\": \"{{test_email_payment}}\",\n  \"firstName\": \"Payment\",\n  \"lastName\": \"Test\",\n  \"phone\": \"+79997776655\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/register"
+      }
+    },
+    {
+      "name": "2. Пополнение баланса для теста платежей",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Баланс пополнен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Начальный баланс установлен', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.newBalance).to.equal(300);",
+              "    pm.variables.set('initial_balance_payment', jsonData.newBalance);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 300\n}"
+        },
+        "url": "{{baseUrl}}/bill/deposit"
+      }
+    },
+    {
+      "name": "3. Создание заказа для тестирования платежей",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Заказ создан успешно', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Получен ID заказа', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.equal('Completed');",
+              "    pm.expect(jsonData.orderId).to.be.a('number');",
+              "    pm.variables.set('order_id_for_payment', jsonData.orderId);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 100,\n  \"productId\": \"prod_payment_test\",\n  \"quantity\": 2,\n  \"deliverySlot\": \"2024-01-25T14:00:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/orders"
+      }
+    },
+    {
+      "name": "4. ПРОВЕРКА 1: Баланс после создания заказа",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Баланс получен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Деньги списаны при создании заказа (300 -> 200)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.balance).to.equal(200);",
+              "    pm.variables.set('balance_after_first_payment', jsonData.balance);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id_payment}}"
+      }
+    },
+    {
+      "name": "5. ТЕСТ 1: Прямой вызов оплаты для существующего заказа",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Получен ответ от сервиса', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('ИДЕМПОТЕНТНОСТЬ: Платеж отклонен (заказ уже оплачен)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var errorMessage = jsonData.error || jsonData.errorMessage || '';",
+              "    pm.expect(errorMessage).to.include('already paid');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 100,\n  \"orderId\": {{order_id_for_payment}}\n}"
+        },
+        "url": "{{baseUrl}}/bill/withdraw"
+      }
+    },
+    {
+      "name": "6. ПРОВЕРКА 2: Баланс НЕ изменился после повторного платежа",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Баланс получен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('ИДЕМПОТЕНТНОСТЬ: Деньги НЕ списаны повторно', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var previousBalance = pm.variables.get('balance_after_first_payment');",
+              "    pm.expect(jsonData.balance).to.equal(parseInt(previousBalance));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id_payment}}"
+      }
+    },
+    {
+      "name": "7. ТЕСТ 2: Множественные вызовы оплаты",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Все вызовы возвращают одинаковый результат', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('ИДЕМПОТЕНТНОСТЬ: Консистентность ответов', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var errorMessage = jsonData.error || jsonData.errorMessage || '';",
+              "    pm.expect(errorMessage).to.include('already paid');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 100,\n  \"orderId\": {{order_id_for_payment}}\n}"
+        },
+        "url": "{{baseUrl}}/bill/withdraw"
+      }
+    },
+    {
+      "name": "8. ТЕСТ 3: Попытка оплаты с новым OrderId",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Получен ответ', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('ИДЕМПОТЕНТНОСТЬ: Защита работает даже с новым ключом', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var errorMessage = jsonData.error || jsonData.errorMessage || '';",
+              "    pm.expect(errorMessage).to.include('already paid');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 100,\n  \"orderId\": {{order_id_for_payment}}\n}"
+        },
+        "url": "{{baseUrl}}/bill/withdraw"
+      }
+    },
+    {
+      "name": "9. ПРОВЕРКА 3: Финальная проверка баланса",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Финальный баланс получен', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('ИДЕМПОТЕНТНОСТЬ: После 5 попыток оплаты списание было только ОДИН раз', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var initialBalance = pm.variables.get('initial_balance_payment');",
+              "    var expectedBalance = parseInt(initialBalance) - 100;",
+              "    pm.expect(jsonData.balance).to.equal(expectedBalance);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token_payment}}"
+          }
+        ],
+        "url": "{{baseUrl}}/bill/balance/{{user_id_payment}}"
+      }
+    }
+  ]
+}

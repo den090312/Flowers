@@ -11,5 +11,7 @@ namespace Flowers.Data
         public DbSet<Account> Accounts { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<CompletedSaga> CompletedSagas { get; set; }
+        public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
     }
 }

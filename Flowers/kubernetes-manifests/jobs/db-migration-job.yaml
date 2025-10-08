@@ -80,6 +80,29 @@ spec:
                 status VARCHAR(50) NOT NULL DEFAULT 'Sent'
               );"
             
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS completed_sagas (
+                id BIGSERIAL PRIMARY KEY,
+                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                order_id BIGINT NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                error_message TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );"
+            
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+              CREATE TABLE IF NOT EXISTS payment_transactions (
+                id BIGSERIAL PRIMARY KEY,
+                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                user_id BIGINT NOT NULL,
+                order_id BIGINT,
+                amount DECIMAL(18,2) NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+              );"
+            
             echo "Database structure:"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\dt"
             
@@ -89,6 +112,8 @@ spec:
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ accounts"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ orders"
             psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ notifications"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ completed_sagas"
+            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ payment_transactions"
             
             echo "Migration completed successfully!"
       restartPolicy: Never
