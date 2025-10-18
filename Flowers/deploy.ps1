@@ -450,3 +450,116 @@ try {
 } catch {
     Write-Host "❌ Метрики недоступны: $($_.Exception.Message)" -ForegroundColor Red
 }
+
+# 14. Установка NetData (альтернатива Grafana)
+Write-Host "`n16. Установка NetData..." -ForegroundColor Cyan
+
+try {
+    # Останавливаем старый контейнер если есть
+    docker stop netdata 2>$null
+    docker rm netdata 2>$null
+    
+    # Запуск NetData в Docker
+    docker run -d `
+      --name=netdata `
+      --restart=unless-stopped `
+      -p 19999:19999 `
+      -v netdataconfig:/etc/netdata `
+      -v netdatalib:/var/lib/netdata `
+      -v netdatacache:/var/cache/netdata `
+      -v /etc/passwd:/host/etc/passwd:ro `
+      -v /etc/group:/host/etc/group:ro `
+      -v /proc:/host/proc:ro `
+      -v /sys:/host/sys:ro `
+      -v /etc/os-release:/host/etc/os-release:ro `
+      -v /var/log/nginx:/var/log/nginx:ro `
+      --cap-add SYS_PTRACE `
+      --security-opt apparmor=unconfined `
+      netdata/netdata
+
+    Write-Host "NetData успешно запущен: http://localhost:19999" -ForegroundColor Green
+    Write-Host "Все метрики собираются автоматически, логин не требуется." -ForegroundColor Cyan
+    
+    # Даем время на запуск
+    Write-Host "Ожидаем запуск NetData..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 15
+    
+    # Настройка web_log для анализа логов Nginx
+    Write-Host "Настройка мониторинга логов Nginx (web_log)..." -ForegroundColor Cyan
+    
+    $web_log_config = @'
+jobs:
+  - name: nginx_ingress
+    path: /var/log/nginx/access.log
+'@
+
+    # Сохраняем конфиг
+    $web_log_config | Out-File -FilePath ".\web-log.conf" -Encoding utf8
+    
+    # Копируем конфиг в контейнер NetData
+    docker cp .\web-log.conf netdata:/etc/netdata/go.d/web_log.conf
+    
+    # Перезапускаем NetData для применения конфига
+    docker restart netdata
+    
+    Write-Host "NetData настроен для анализа логов Nginx!" -ForegroundColor Green
+    Write-Host "Логи будут доступны в NetData: http://localhost:19999" -ForegroundColor Cyan
+    Write-Host "Для просмотра используйте поиск по 'web_log'" -ForegroundColor Cyan
+    
+    # Удаляем временный файл
+    Remove-Item .\web-log.conf -Force 2>$null
+    
+    # Проверка доступности
+    Start-Sleep -Seconds 10
+    Write-Host "Проверка работы NetData..." -ForegroundColor Yellow
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:19999/api/v1/info" -TimeoutSec 5 -UseBasicParsing
+        Write-Host "✅ NetData полностью настроен и готов к работе!" -ForegroundColor Green
+    } catch {
+        Write-Host "⚠️ NetData перезагружается, подождите немного..." -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "Ошибка при запуске NetData: $_" -ForegroundColor Red
+    exit 1
+}
+
+# 15. Установка pgAdmin для визуального управления БД
+Write-Host "`n15. Установка pgAdmin..." -ForegroundColor Cyan
+
+try {
+    # Останавливаем старый контейнер если есть
+    docker stop pgadmin 2>$null
+    docker rm pgadmin 2>$null
+
+    # Запускаем pgAdmin с правильными настройками
+    docker run -d `
+      --name pgadmin `
+      -p 8080:80 `
+      -e PGADMIN_DEFAULT_EMAIL=admin@admin.com `
+      -e PGADMIN_DEFAULT_PASSWORD=admin `
+      dpage/pgadmin4
+
+    Write-Host "pgAdmin запущен: http://localhost:8080" -ForegroundColor Green
+    Write-Host "Логин: admin@admin.com" -ForegroundColor Cyan
+    Write-Host "Пароль: admin" -ForegroundColor Cyan
+    
+    # Даем больше времени на запуск
+    Write-Host "Ожидаем запуск pgAdmin (30 секунд)..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 30
+    
+    Write-Host "`nИнструкция по подключению:" -ForegroundColor Yellow
+    Write-Host "1. Откройте http://localhost:8080" -ForegroundColor White
+    Write-Host "2. Добавьте новый сервер (Right-click Servers → Register → Server)" -ForegroundColor White
+    Write-Host "3. В поле 'Host' укажите IP вашего PostgreSQL контейнера" -ForegroundColor White
+    Write-Host "4. Используйте логин/пароль из вашего db-secret.yaml" -ForegroundColor White
+    
+    # Получаем IP адрес PostgreSQL контейнера для подключения
+	$pg_ip = kubectl get svc postgresql -o jsonpath='{.spec.clusterIP}' 2>$null
+
+    Write-Host "`nДля подключения используйте:" -ForegroundColor Cyan
+    Write-Host "Host: $pg_ip" -ForegroundColor White
+}
+catch {
+    Write-Host "Ошибка при запуске pgAdmin: $_" -ForegroundColor Red
+}
