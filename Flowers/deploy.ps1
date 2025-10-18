@@ -459,7 +459,7 @@ try {
     docker stop netdata 2>$null
     docker rm netdata 2>$null
     
-    # Запуск NetData в Docker
+    # Запуск NetData
     docker run -d `
       --name=netdata `
       --restart=unless-stopped `
@@ -477,51 +477,17 @@ try {
       --security-opt apparmor=unconfined `
       netdata/netdata
 
-    Write-Host "NetData успешно запущен: http://localhost:19999" -ForegroundColor Green
-    Write-Host "Все метрики собираются автоматически, логин не требуется." -ForegroundColor Cyan
+    Write-Host "NetData успешно собран: http://localhost:19999" -ForegroundColor Green
     
     # Даем время на запуск
     Write-Host "Ожидаем запуск NetData..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 15
+    Start-Sleep -Seconds 20
     
-    # Настройка web_log для анализа логов Nginx
-    Write-Host "Настройка мониторинга логов Nginx (web_log)..." -ForegroundColor Cyan
-    
-    $web_log_config = @'
-jobs:
-  - name: nginx_ingress
-    path: /var/log/nginx/access.log
-'@
-
-    # Сохраняем конфиг
-    $web_log_config | Out-File -FilePath ".\web-log.conf" -Encoding utf8
-    
-    # Копируем конфиг в контейнер NetData
-    docker cp .\web-log.conf netdata:/etc/netdata/go.d/web_log.conf
-    
-    # Перезапускаем NetData для применения конфига
-    docker restart netdata
-    
-    Write-Host "NetData настроен для анализа логов Nginx!" -ForegroundColor Green
-    Write-Host "Логи будут доступны в NetData: http://localhost:19999" -ForegroundColor Cyan
-    Write-Host "Для просмотра используйте поиск по 'web_log'" -ForegroundColor Cyan
-    
-    # Удаляем временный файл
-    Remove-Item .\web-log.conf -Force 2>$null
-    
-    # Проверка доступности
-    Start-Sleep -Seconds 10
-    Write-Host "Проверка работы NetData..." -ForegroundColor Yellow
-    try {
-        $response = Invoke-WebRequest -Uri "http://localhost:19999/api/v1/info" -TimeoutSec 5 -UseBasicParsing
-        Write-Host "✅ NetData полностью настроен и готов к работе!" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ NetData перезагружается, подождите немного..." -ForegroundColor Yellow
-    }
+    Write-Host "`nИнструкция по просмотру логов:" -ForegroundColor Green
+    Write-Host "1. Откройте: http://localhost:19999" -ForegroundColor White
 }
 catch {
     Write-Host "Ошибка при запуске NetData: $_" -ForegroundColor Red
-    exit 1
 }
 
 # 15. Установка pgAdmin для визуального управления БД
