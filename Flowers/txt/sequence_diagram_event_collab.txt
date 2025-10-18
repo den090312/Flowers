@@ -8,10 +8,10 @@ User          OrderService       BillingService      NotificationService     Mes
   |                |                   | Subscribe: OrderCreated                  |
   |                |                   |<-----------------------------------------|
   |                |                   | Process Payment     |                    |
-  |                |                   |------------------->|                    |
-  |                |                   | Payment Result     |                    |
-  |                |                   |<-------------------|                    |
-  |                |                   | Publish: PaymentProcessed               |
+  |                |                   |-------------------> |                    |
+  |                |                   | Payment Result      |                    |
+  |                |                   |<--------------------|                    |
+  |                |                   | Publish: PaymentProcessed                |
   |                |                   |----------------------------------------->|
   |                |                   |                     |                    |
   |                | Subscribe: PaymentProcessed             |                    |
