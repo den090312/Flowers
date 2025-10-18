@@ -71,24 +71,6 @@ docker logs -f $nginx_container | ForEach-Object {
             Write-Host "$($Matches[1])s" -ForegroundColor White
         }
         
-        Write-Host "└" -ForegroundColor DarkGray
-        
-        # Если это ошибка, показываем дополнительную информацию
-        if ($status -match "^[45]") {
-            Write-Host "  ⚠️  Детали ошибки:" -ForegroundColor $statusColor
-            
-            # Пытаемся извлечь больше информации из лога
-            if ($line -match 'upstream_addr:([^ ]+)') {
-                Write-Host "  ↳ upstream: " -NoNewline -ForegroundColor DarkGray
-                Write-Host $Matches[1] -ForegroundColor White
-            }
-            
-            if ($line -match 'upstream_response_time:([^ ]+)') {
-                Write-Host "  ↳ upstream time: " -NoNewline -ForegroundColor DarkGray
-                Write-Host $Matches[1] -ForegroundColor White
-            }
-        }
-        
         # Разделитель между запросами
         Write-Host "─" * 80 -ForegroundColor DarkGray
     }
