@@ -1,7 +1,7 @@
 # content.ps1 - Project files content analysis
 
 # Create output file
-$outputFile = "project-analysis-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+$outputFile = "content-result-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
 Write-Host "Results will be saved to: $outputFile" -ForegroundColor Cyan
 
 # Function to write to file and console
@@ -36,7 +36,6 @@ $fileTypes = @(
     @{Name = "DOCKERFILE"; Filter = "Dockerfile"; Color = "Blue"},
     @{Name = "C# FILES"; Filter = "*.cs"; Color = "Magenta"},
     @{Name = "CSPROJ FILES (PROJECTS)"; Filter = "*.csproj"; Color = "Cyan"},
-    @{Name = "JSON FILES (CONFIG)"; Filter = "*.json"; Color = "DarkYellow"},
     @{Name = "CONFIG FILES"; Filter = "*.config"; Color = "DarkCyan"},
     @{Name = "POWERSHELL SCRIPTS"; Filter = "*.ps1"; Color = "Red"},
     @{Name = "SLN FILES"; Filter = "*.sln"; Color = "DarkMagenta"},
