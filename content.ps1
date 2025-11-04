@@ -39,6 +39,7 @@ $fileTypes = @(
     @{Name = "CONFIG FILES"; Filter = "*.config"; Color = "DarkCyan"},
     @{Name = "POWERSHELL SCRIPTS"; Filter = "*.ps1"; Color = "Red"},
     @{Name = "SLN FILES"; Filter = "*.sln"; Color = "DarkMagenta"},
+	@{Name = "PS1 FILES"; Filter = "*.ps1"; Color = "DarkMagenta"},
     @{Name = "GITIGNORE"; Filter = ".gitignore"; Color = "DarkGray"}
 )
 
