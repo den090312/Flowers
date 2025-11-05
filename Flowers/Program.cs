@@ -1,9 +1,4 @@
 ﻿#region ЮЗИНГИ
-using Flowers.Data;
-using Flowers.Interfaces;
-using Flowers.Models;
-using Flowers.Services;
-
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -53,45 +48,38 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 });
+#endregion
 
-builder.Services.AddAuthorization();
+//builder.Services.AddAuthorization();
 
-// Добавляем хеширование паролей
-builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+//// Добавляем хеширование паролей
+//builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
 
-builder.Services.AddScoped<IBillingService, BillingService>();
-builder.Services.AddScoped<IWarehouseService, WarehouseService>();
-builder.Services.AddScoped<IDeliveryService, DeliveryService>();
-builder.Services.AddScoped<IOrderSagaService, OrderSagaService>();
+//builder.Services.AddScoped<IBillingService, BillingService>();
+//builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+//builder.Services.AddScoped<IDeliveryService, DeliveryService>();
+//builder.Services.AddScoped<IOrderSagaService, OrderSagaService>();
 
-// Загрузка конфигурации из /app/config
-if (File.Exists("/app/config/appsettings.json"))
-{
-    builder.Configuration.AddJsonFile("/app/config/appsettings.json", optional: false, reloadOnChange: true);
-}
+//// Загрузка конфигурации из /app/config
+//if (File.Exists("/app/config/appsettings.json"))
+//{
+//    builder.Configuration.AddJsonFile("/app/config/appsettings.json", optional: false, reloadOnChange: true);
+//}
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// Configure DbContext with PostgreSQL
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    options.UseNpgsql(connectionString, options =>
-    {
-        options.EnableRetryOnFailure(
-            maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorCodesToAdd: null);
-    });
-    options.LogTo(Console.WriteLine, LogLevel.Information);
-});
-
-// Add health checks
-builder.Services.AddHealthChecks()
-    .AddCheck<DbHealthCheck>("Database")
-    .AddCheck("Self", () => HealthCheckResult.Healthy("API is healthy"));
-
-// Регистрируем наш кастомный health check как Scoped
-builder.Services.AddScoped<DbHealthCheck>();
+//// Configure DbContext with PostgreSQL
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//{
+//    options.UseNpgsql(connectionString, options =>
+//    {
+//        options.EnableRetryOnFailure(
+//            maxRetryCount: 3,
+//            maxRetryDelay: TimeSpan.FromSeconds(5),
+//            errorCodesToAdd: null);
+//    });
+//    options.LogTo(Console.WriteLine, LogLevel.Information);
+//});
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -104,446 +92,446 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 var app = builder.Build();
 
-app.UseCors(builder => builder.AllowAnyOrigin());
-app.UseAuthentication();
-app.UseAuthorization();
+//app.UseCors(builder => builder.AllowAnyOrigin());
+//app.UseAuthentication();
+//app.UseAuthorization();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    app.UseExceptionHandler("/Error");
-    app.UseHsts();
-}
+//// Configure the HTTP request pipeline.
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseDeveloperExceptionPage();
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+//else
+//{
+//    app.UseExceptionHandler("/Error");
+//    app.UseHsts();
+//}
 
-// Корневой endpoint
-app.MapGet("/", () => "Flowers API is running");
-#endregion
+//// Корневой endpoint
+//app.MapGet("/", () => "Flowers API is running");
+//#endregion
 
-#region АУТЕНТИФИКАЦИЯ
-var authGroup = app.MapGroup("/auth");
+//#region АУТЕНТИФИКАЦИЯ
+//var authGroup = app.MapGroup("/auth");
 
-// Регистрация
-authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext context,
-    IPasswordHasher passwordHasher, IConfiguration configuration) =>
-{
-    if (await context.AuthUsers.AnyAsync(u => u.Username == request.Username))
-        return Results.BadRequest("Username already exists");
+//// Регистрация
+//authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext context,
+//    IPasswordHasher passwordHasher, IConfiguration configuration) =>
+//{
+//    if (await context.AuthUsers.AnyAsync(u => u.Username == request.Username))
+//        return Results.BadRequest("Username already exists");
 
-    if (await context.Users.AnyAsync(u => u.Email == request.Email))
-        return Results.BadRequest("Email already exists");
+//    if (await context.Users.AnyAsync(u => u.Email == request.Email))
+//        return Results.BadRequest("Email already exists");
 
-    var user = new User
-    {
-        Username = request.Username,
-        FirstName = request.FirstName,
-        LastName = request.LastName,
-        Email = request.Email,
-        Phone = request.Phone
-    };
+//    var user = new User
+//    {
+//        Username = request.Username,
+//        FirstName = request.FirstName,
+//        LastName = request.LastName,
+//        Email = request.Email,
+//        Phone = request.Phone
+//    };
 
-    if (context.Users.Contains(user))
-    {
-        return Results.Conflict(new
-        {
-            Error = "User already exists",
-            Username = request.Username,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Email = request.Email,
-            Phone = request.Phone
-        });
-    }
+//    if (context.Users.Contains(user))
+//    {
+//        return Results.Conflict(new
+//        {
+//            Error = "User already exists",
+//            Username = request.Username,
+//            FirstName = request.FirstName,
+//            LastName = request.LastName,
+//            Email = request.Email,
+//            Phone = request.Phone
+//        });
+//    }
 
-    context.Users.Add(user);
+//    context.Users.Add(user);
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
 
-    var authUser = new AuthUser
-    {
-        UserId = user.Id,
-        Username = request.Username,
-        PasswordHash = passwordHasher.HashPassword(request.Password)
-    };
+//    var authUser = new AuthUser
+//    {
+//        UserId = user.Id,
+//        Username = request.Username,
+//        PasswordHash = passwordHasher.HashPassword(request.Password)
+//    };
 
-    context.AuthUsers.Add(authUser);
+//    context.AuthUsers.Add(authUser);
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
 
-    var account = new Account
-    {
-        UserId = user.Id,
-        Balance = 0
-    };
+//    var account = new Account
+//    {
+//        UserId = user.Id,
+//        Balance = 0
+//    };
 
-    context.Accounts.Add(account);
+//    context.Accounts.Add(account);
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
 
-    var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
+//    var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
 
-    return Results.Ok(new AuthResponse
-    {
-        Token = token,
-        UserId = user.Id,
-        Username = user.Username
-    });
-});
+//    return Results.Ok(new AuthResponse
+//    {
+//        Token = token,
+//        UserId = user.Id,
+//        Username = user.Username
+//    });
+//});
 
-// Логин
-authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, IPasswordHasher passwordHasher, IConfiguration configuration) =>
-{
-    var authUser = await context.AuthUsers
-        .Include(au => au.User)
-        .FirstOrDefaultAsync(u => u.Username == request.Username);
+//// Логин
+//authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, IPasswordHasher passwordHasher, IConfiguration configuration) =>
+//{
+//    var authUser = await context.AuthUsers
+//        .Include(au => au.User)
+//        .FirstOrDefaultAsync(u => u.Username == request.Username);
 
-    if (authUser == null || !passwordHasher.VerifyPassword(request.Password, authUser.PasswordHash))
-        return Results.Unauthorized();
+//    if (authUser == null || !passwordHasher.VerifyPassword(request.Password, authUser.PasswordHash))
+//        return Results.Unauthorized();
 
-    var token = Jwt.GenerateJwtToken(authUser.UserId, authUser.Username, configuration);
+//    var token = Jwt.GenerateJwtToken(authUser.UserId, authUser.Username, configuration);
 
-    return Results.Ok(new AuthResponse
-    {
-        Token = token,
-        UserId = authUser.UserId,
-        Username = authUser.Username
-    });
-});
-#endregion
+//    return Results.Ok(new AuthResponse
+//    {
+//        Token = token,
+//        UserId = authUser.UserId,
+//        Username = authUser.Username
+//    });
+//});
+//#endregion
 
-#region СЕРВИС СКЛАДА
+//#region СЕРВИС СКЛАДА
 
-var warehouseGroup = app.MapGroup("/warehouse");
+//var warehouseGroup = app.MapGroup("/warehouse");
 
-warehouseGroup.MapPost("/reserve", async (ReserveProductRequest request, IWarehouseService service) =>
-{
-    try
-    {
-        var result = await service.ReserveProductAsync(request);
+//warehouseGroup.MapPost("/reserve", async (ReserveProductRequest request, IWarehouseService service) =>
+//{
+//    try
+//    {
+//        var result = await service.ReserveProductAsync(request);
 
-        return Results.Ok(result);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).WithName("ReserveProduct");
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("ReserveProduct");
 
-warehouseGroup.MapPost("/release", async (ReleaseProductRequest request, IWarehouseService service) =>
-{
-    try
-    {
-        var result = await service.ReleaseProductAsync(request);
+//warehouseGroup.MapPost("/release", async (ReleaseProductRequest request, IWarehouseService service) =>
+//{
+//    try
+//    {
+//        var result = await service.ReleaseProductAsync(request);
 
-        return Results.Ok(result);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).WithName("ReleaseProduct");
-#endregion
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("ReleaseProduct");
+//#endregion
 
-#region СЕРВИС ДОСТАВКИ
-var deliveryGroup = app.MapGroup("/delivery");
+//#region СЕРВИС ДОСТАВКИ
+//var deliveryGroup = app.MapGroup("/delivery");
 
-deliveryGroup.MapPost("/reserve", async (ReserveCourierRequest request, IDeliveryService service) =>
-{
-    try
-    {
-        var result = await service.ReserveCourierAsync(request);
+//deliveryGroup.MapPost("/reserve", async (ReserveCourierRequest request, IDeliveryService service) =>
+//{
+//    try
+//    {
+//        var result = await service.ReserveCourierAsync(request);
 
-        return Results.Ok(result);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).WithName("ReserveCourier");
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("ReserveCourier");
 
-deliveryGroup.MapPost("/cancel", async (CancelCourierRequest request, IDeliveryService service) =>
-{
-    try
-    {
-        var result = await service.CancelCourierAsync(request);
+//deliveryGroup.MapPost("/cancel", async (CancelCourierRequest request, IDeliveryService service) =>
+//{
+//    try
+//    {
+//        var result = await service.CancelCourierAsync(request);
 
-        return Results.Ok(result);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).WithName("CancelCourier");
-#endregion
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("CancelCourier");
+//#endregion
 
-#region СЕРВИС БИЛЛИНГ
-var billingGroup = app.MapGroup("/bill");
+//#region СЕРВИС БИЛЛИНГ
+//var billingGroup = app.MapGroup("/bill");
 
-// Пополнение счета
-billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService service) =>
-{
-    try
-    {
-        var result = await service.DepositAsync(request);
+//// Пополнение счета
+//billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService service) =>
+//{
+//    try
+//    {
+//        var result = await service.DepositAsync(request);
 
-        if (result)
-        {
-            var newBalance = await service.GetBalanceAsync(request.UserId);
+//        if (result)
+//        {
+//            var newBalance = await service.GetBalanceAsync(request.UserId);
 
-            return Results.Ok(new { newBalance });
-        }
+//            return Results.Ok(new { newBalance });
+//        }
         
-        return Results.BadRequest(new { error = "Deposit failed" });
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).RequireAuthorization()
-.WithName("Deposit");
+//        return Results.BadRequest(new { error = "Deposit failed" });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).RequireAuthorization()
+//.WithName("Deposit");
 
-// Получение баланса
-billingGroup.MapGet("/balance/{userId}", async (long userId, IBillingService service) =>
-{
-    try
-    {
-        var balance = await service.GetBalanceAsync(userId);
+//// Получение баланса
+//billingGroup.MapGet("/balance/{userId}", async (long userId, IBillingService service) =>
+//{
+//    try
+//    {
+//        var balance = await service.GetBalanceAsync(userId);
 
-        return Results.Ok(new { balance });
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).RequireAuthorization()
-.WithName("GetBalance");
+//        return Results.Ok(new { balance });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).RequireAuthorization()
+//.WithName("GetBalance");
 
-// Снятие денег
-billingGroup.MapPost("/withdraw", async (WithdrawRequest request, IBillingService service) =>
-{
-    try
-    {
-        var result = await service.WithdrawAsync(request);
+//// Снятие денег
+//billingGroup.MapPost("/withdraw", async (WithdrawRequest request, IBillingService service) =>
+//{
+//    try
+//    {
+//        var result = await service.WithdrawAsync(request);
 
-        if (result)
-        {
-            var newBalance = await service.GetBalanceAsync(request.UserId);
+//        if (result)
+//        {
+//            var newBalance = await service.GetBalanceAsync(request.UserId);
 
-            return Results.Ok(new { newBalance });
-        }
+//            return Results.Ok(new { newBalance });
+//        }
 
-        return Results.BadRequest(new { error = "Withdrawal failed - insufficient funds" });
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-}).RequireAuthorization()
-.WithName("Withdraw");
-#endregion
+//        return Results.BadRequest(new { error = "Withdrawal failed - insufficient funds" });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).RequireAuthorization()
+//.WithName("Withdraw");
+//#endregion
 
-#region СЕРВИС ЗАКАЗОВ
-var ordersGroup = app.MapGroup("/orders");
+//#region СЕРВИС ЗАКАЗОВ
+//var ordersGroup = app.MapGroup("/orders");
 
-// Создание заказа
-ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context, IOrderSagaService sagaService) =>
-{
-    var result = new CreateOrderResponse();
+//// Создание заказа
+//ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context, IOrderSagaService sagaService) =>
+//{
+//    var result = new CreateOrderResponse();
 
-    try
-    {
-        // Получение userId из JWT токена
-        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+//    try
+//    {
+//        // Получение userId из JWT токена
+//        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
 
-        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
-            return Results.Unauthorized();
+//        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
+//            return Results.Unauthorized();
 
-        result = await sagaService.CreateOrderAsync(request, userId);
+//        result = await sagaService.CreateOrderAsync(request, userId);
 
-        if (result?.Status == "Completed")
-            return Results.Ok(result);
-        else
-            return Results.BadRequest(new { error = result?.ErrorMessage ?? "" });
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = result?.ErrorMessage ?? ex.Message ?? "" });
-    }
-}).RequireAuthorization();
+//        if (result?.Status == "Completed")
+//            return Results.Ok(result);
+//        else
+//            return Results.BadRequest(new { error = result?.ErrorMessage ?? "" });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = result?.ErrorMessage ?? ex.Message ?? "" });
+//    }
+//}).RequireAuthorization();
 
-// Получение заказов пользователя
-ordersGroup.MapGet("/", async (AppDbContext context, HttpContext httpContext) =>
-{
-    var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-    var orders = await context.Orders
-        .Where(o => o.UserId == userId)
-        .OrderByDescending(o => o.CreatedAt)
-        .ToListAsync();
+//// Получение заказов пользователя
+//ordersGroup.MapGet("/", async (AppDbContext context, HttpContext httpContext) =>
+//{
+//    var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+//    var orders = await context.Orders
+//        .Where(o => o.UserId == userId)
+//        .OrderByDescending(o => o.CreatedAt)
+//        .ToListAsync();
 
-    return Results.Ok(orders);
-}).RequireAuthorization();
-#endregion
+//    return Results.Ok(orders);
+//}).RequireAuthorization();
+//#endregion
 
-#region СЕРВИС УВЕДОМЛЕНИЙ
-var notifGroup = app.MapGroup("/notif");
+//#region СЕРВИС УВЕДОМЛЕНИЙ
+//var notifGroup = app.MapGroup("/notif");
 
-// Получение уведомлений пользователя
-notifGroup.MapGet("/notifications/{userId:long}", async (long userId, AppDbContext context) =>
-{
-    var notifications = await context.Notifications
-        .Where(n => n.UserId == userId)
-        .OrderByDescending(n => n.CreatedAt)
-        .ToListAsync();
+//// Получение уведомлений пользователя
+//notifGroup.MapGet("/notifications/{userId:long}", async (long userId, AppDbContext context) =>
+//{
+//    var notifications = await context.Notifications
+//        .Where(n => n.UserId == userId)
+//        .OrderByDescending(n => n.CreatedAt)
+//        .ToListAsync();
 
-    return Results.Ok(notifications);
-}).RequireAuthorization();
-#endregion
+//    return Results.Ok(notifications);
+//}).RequireAuthorization();
+//#endregion
 
-#region ПОЛЬЗОВАТЕЛИ
+//#region ПОЛЬЗОВАТЕЛИ
 
-var userGroup = app.MapGroup("/user");
+//var userGroup = app.MapGroup("/user");
 
-// Получение всех пользователей
-userGroup.MapGet("/", async (AppDbContext context) =>
-{
-    var users = await context.Users.ToListAsync();
+//// Получение всех пользователей
+//userGroup.MapGet("/", async (AppDbContext context) =>
+//{
+//    var users = await context.Users.ToListAsync();
 
-    return Results.Ok(users);
-});
+//    return Results.Ok(users);
+//});
 
-// Создание пользователя
-userGroup.MapPost("/", async (User user, AppDbContext context) =>
-{
-    context.Users.Add(user);
+//// Создание пользователя
+//userGroup.MapPost("/", async (User user, AppDbContext context) =>
+//{
+//    context.Users.Add(user);
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
 
-    return Results.Created($"/user/{user.Id}", user);
-});
+//    return Results.Created($"/user/{user.Id}", user);
+//});
 
-// Получение пользователя по ID с проверкой авторизации
-userGroup.MapGet("/{userId:long}", async (long userId, AppDbContext context, HttpContext httpContext) =>
-{
-    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+//// Получение пользователя по ID с проверкой авторизации
+//userGroup.MapGet("/{userId:long}", async (long userId, AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
-    if (currentUserId != userId)
-        return Results.Forbid();
+//    if (currentUserId != userId)
+//        return Results.Forbid();
 
-    var user = await context.Users.FindAsync(userId);
+//    var user = await context.Users.FindAsync(userId);
 
-    return user is null ? Results.NotFound() : Results.Ok(user);
-}).RequireAuthorization();
+//    return user is null ? Results.NotFound() : Results.Ok(user);
+//}).RequireAuthorization();
 
-// Обновление пользователя с проверкой авторизации
-userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbContext context, HttpContext httpContext) =>
-{
-    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+//// Обновление пользователя с проверкой авторизации
+//userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
-    if (currentUserId != userId)
-        return Results.Forbid();
+//    if (currentUserId != userId)
+//        return Results.Forbid();
 
-    var user = await context.Users.FindAsync(userId);
+//    var user = await context.Users.FindAsync(userId);
 
-    if (user is null) 
-        return Results.NotFound();
+//    if (user is null) 
+//        return Results.NotFound();
 
-    if (updatedUser.Username != null) user.Username = updatedUser.Username;
-    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
-    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
-    if (updatedUser.Email != null) user.Email = updatedUser.Email;
-    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
+//    if (updatedUser.Username != null) user.Username = updatedUser.Username;
+//    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
+//    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
+//    if (updatedUser.Email != null) user.Email = updatedUser.Email;
+//    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
 
-    return Results.Ok(user);
-}).RequireAuthorization();
+//    return Results.Ok(user);
+//}).RequireAuthorization();
 
-// Получение профиля текущего пользователя
-userGroup.MapGet("/profile", async (AppDbContext context, HttpContext httpContext) =>
-{
-    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+//// Получение профиля текущего пользователя
+//userGroup.MapGet("/profile", async (AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
     
-    var user = await context.Users.FindAsync(currentUserId);
+//    var user = await context.Users.FindAsync(currentUserId);
     
-    return user is null ? Results.NotFound() : Results.Ok(user);
-}).RequireAuthorization();
+//    return user is null ? Results.NotFound() : Results.Ok(user);
+//}).RequireAuthorization();
 
-// Обновление профиля текущего пользователя
-userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, HttpContext httpContext) =>
-{
-    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+//// Обновление профиля текущего пользователя
+//userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
     
-    var user = await context.Users.FindAsync(currentUserId);
+//    var user = await context.Users.FindAsync(currentUserId);
     
-    if (user is null) 
-        return Results.NotFound();
+//    if (user is null) 
+//        return Results.NotFound();
 
-    if (updatedUser.Username != null) user.Username = updatedUser.Username;
-    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
-    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
-    if (updatedUser.Email != null) user.Email = updatedUser.Email;
-    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
+//    if (updatedUser.Username != null) user.Username = updatedUser.Username;
+//    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
+//    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
+//    if (updatedUser.Email != null) user.Email = updatedUser.Email;
+//    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
 
-    return Results.Ok(user);
-}).RequireAuthorization();
+//    return Results.Ok(user);
+//}).RequireAuthorization();
 
-// Удаление пользователя
-userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) =>
-{
-    var user = await context.Users.FindAsync(userId);
+//// Удаление пользователя
+//userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) =>
+//{
+//    var user = await context.Users.FindAsync(userId);
 
-    if (user is null) 
-        return Results.NotFound();
+//    if (user is null) 
+//        return Results.NotFound();
 
-    context.Users.Remove(user);
+//    context.Users.Remove(user);
 
-    await context.SaveChangesAsync();
+//    await context.SaveChangesAsync();
     
-    return Results.NoContent();
-});
-#endregion
+//    return Results.NoContent();
+//});
+//#endregion
 
-#region ПРОВЕРКА ЗДОРОВЬЯ
-// Health checks endpoints
-app.MapHealthChecks("/health");
-app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
-{
-    ResponseWriter = async (context, report) =>
-    {
-        context.Response.ContentType = "application/json";
+//#region ПРОВЕРКА ЗДОРОВЬЯ
+//// Health checks endpoints
+//app.MapHealthChecks("/health");
+//app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
+//{
+//    ResponseWriter = async (context, report) =>
+//    {
+//        context.Response.ContentType = "application/json";
 
-        var response = new
-        {
-            Status = report.Status.ToString(),
-            Checks = report.Entries.Select(e => new
-            {
-                Component = e.Key,
-                Status = e.Value.Status.ToString(),
-                Description = e.Value.Description
-            }),
-            Duration = report.TotalDuration
-        };
+//        var response = new
+//        {
+//            Status = report.Status.ToString(),
+//            Checks = report.Entries.Select(e => new
+//            {
+//                Component = e.Key,
+//                Status = e.Value.Status.ToString(),
+//                Description = e.Value.Description
+//            }),
+//            Duration = report.TotalDuration
+//        };
 
-        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
-    }
-});
-#endregion
+//        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+//    }
+//});
+//#endregion
 
-#region ОБРАБОТКА ОШИБОК
-app.Use(async (context, next) =>
-{
-    Console.WriteLine($"Received {context.Request.Method} {context.Request.Path}");
+//#region ОБРАБОТКА ОШИБОК
+//app.Use(async (context, next) =>
+//{
+//    Console.WriteLine($"Received {context.Request.Method} {context.Request.Path}");
 
-    await next();
-});
-#endregion
+//    await next();
+//});
+//#endregion
 
 #region ЗАПУСК
 app.UseExceptionHandler(a => a.Run(async context =>

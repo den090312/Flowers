@@ -27,12 +27,29 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
+            # Функция для создания базы данных
+            create_database() {
+              local db_name=$1
+              echo "Creating database: $db_name"
+              psql -h postgresql -U $PGUSER -d $PGDATABASE -c "CREATE DATABASE $db_name;"
+            }
+
+            # Ожидание PostgreSQL
             until pg_isready -h postgresql -U $PGUSER -d $PGDATABASE; do
               sleep 2
               echo "Waiting for PostgreSQL..."
             done
-            
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+
+            # Создаем базы данных для каждого сервиса
+            create_database "auth_db"
+            create_database "user_db" 
+            create_database "order_db"
+            create_database "billing_db"
+            create_database "notification_db"
+
+            # 1. Auth Service Database
+            echo "Setting up auth_db..."
+            psql -h postgresql -U $PGUSER -d auth_db -c "
               CREATE TABLE IF NOT EXISTS users (
                 id BIGSERIAL PRIMARY KEY,
                 username VARCHAR(255) NOT NULL UNIQUE,
@@ -41,56 +58,38 @@ spec:
                 email VARCHAR(255) NOT NULL UNIQUE,
                 phone VARCHAR(50) NOT NULL
               );"
-            
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+
+            psql -h postgresql -U $PGUSER -d auth_db -c "
               CREATE TABLE IF NOT EXISTS auth_users (
-                  id BIGSERIAL PRIMARY KEY,
-                  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                  username VARCHAR(255) UNIQUE NOT NULL,
-                  password_hash VARCHAR(255) NOT NULL
-              );"
-              
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
-              CREATE TABLE IF NOT EXISTS accounts (
                 id BIGSERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL
+              );"
+
+            # 2. User Service Database
+            echo "Setting up user_db..."
+            psql -h postgresql -U $PGUSER -d user_db -c "
+              CREATE TABLE IF NOT EXISTS users (
+                id BIGSERIAL PRIMARY KEY,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                firstname VARCHAR(255) NOT NULL,
+                lastname VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                phone VARCHAR(50) NOT NULL
+              );"
+
+            # 3. Billing Service Database  
+            echo "Setting up billing_db..."
+            psql -h postgresql -U $PGUSER -d billing_db -c "
+              CREATE TABLE IF NOT EXISTS accounts (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
                 balance DECIMAL(18,2) NOT NULL DEFAULT 0,
                 UNIQUE(user_id)
               );"
-            
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
-              CREATE TABLE IF NOT EXISTS orders (
-                id BIGSERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                amount DECIMAL(18,2) NOT NULL,
-                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                product_id VARCHAR(255),
-                quantity INTEGER DEFAULT 0,
-                delivery_slot TIMESTAMP
-              );"
-            
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
-              CREATE TABLE IF NOT EXISTS notifications (
-                id BIGSERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                email VARCHAR(255) NOT NULL,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) NOT NULL DEFAULT 'Sent'
-              );"
-            
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
-              CREATE TABLE IF NOT EXISTS completed_sagas (
-                id BIGSERIAL PRIMARY KEY,
-                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
-                order_id BIGINT NOT NULL,
-                status VARCHAR(50) NOT NULL,
-                error_message TEXT,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-              );"
-            
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "
+
+            psql -h postgresql -U $PGUSER -d billing_db -c "
               CREATE TABLE IF NOT EXISTS payment_transactions (
                 id BIGSERIAL PRIMARY KEY,
                 idempotency_key VARCHAR(255) UNIQUE NOT NULL,
@@ -99,22 +98,61 @@ spec:
                 amount DECIMAL(18,2) NOT NULL,
                 status VARCHAR(50) NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                completed_at TIMESTAMP
               );"
+
+            # 4. Order Service Database
+            echo "Setting up order_db..."
+            psql -h postgresql -U $PGUSER -d order_db -c "
+              CREATE TABLE IF NOT EXISTS orders (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                amount DECIMAL(18,2) NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                product_id VARCHAR(255),
+                quantity INTEGER DEFAULT 0,
+                delivery_slot TIMESTAMP
+              );"
+
+            psql -h postgresql -U $PGUSER -d order_db -c "
+              CREATE TABLE IF NOT EXISTS completed_sagas (
+                id BIGSERIAL PRIMARY KEY,
+                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                order_id BIGINT NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                error_message TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );"
+
+            # 5. Notification Service Database
+            echo "Setting up notification_db..."
+            psql -h postgresql -U $PGUSER -d notification_db -c "
+              CREATE TABLE IF NOT EXISTS notifications (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50) NOT NULL DEFAULT 'Sent'
+              );"
+
+            echo "=== Database Structure Summary ==="
+            echo "auth_db tables:"
+            psql -h postgresql -U $PGUSER -d auth_db -c "\dt"
             
-            echo "Database structure:"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\dt"
+            echo "user_db tables:"
+            psql -h postgresql -U $PGUSER -d user_db -c "\dt"
             
-            echo "Table details:"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ users"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ auth_users"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ accounts"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ orders"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ notifications"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ completed_sagas"
-            psql -h postgresql -U $PGUSER -d $PGDATABASE -c "\d+ payment_transactions"
+            echo "billing_db tables:"
+            psql -h postgresql -U $PGUSER -d billing_db -c "\dt"
             
+            echo "order_db tables:"
+            psql -h postgresql -U $PGUSER -d order_db -c "\dt"
+            
+            echo "notification_db tables:"
+            psql -h postgresql -U $PGUSER -d notification_db -c "\dt"
+
             echo "Migration completed successfully!"
       restartPolicy: Never
   backoffLimit: 2

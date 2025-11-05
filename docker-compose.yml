@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  postgresql:
+    image: bitnamilegacy/postgresql:17.6.0-debian-12-r4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Auth/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=auth_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5001:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  user-service:
+    build:
+      context: .
+      dockerfile: User/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=user_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5002:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Order/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=order_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5003:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: Billing/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=billing_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5004:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Notification/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=notification_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5005:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+volumes:
+  postgres_data:

@@ -1,0 +1,4614 @@
+=== PROJECT ANALYSIS 11/06/2025 00:05:15 ===
+
+=== PROJECT STRUCTURE ANALYSIS ===
+
+ALL FILE EXTENSIONS:
+  .dll       - 434 files
+  .json      - 216 files
+  .cache     - 132 files
+  .cs        - 120 files
+  .txt       - 49 files
+  .editorconfig - 25 files
+  .exe       - 24 files
+  .pdb       - 24 files
+  .targets   - 23 files
+  .props     - 22 files
+  .Up2Date   - 12 files
+  .so        - 12 files
+  .yaml      - 11 files
+  .ps1       - 8 files
+  .csproj    - 8 files
+  .http      - 8 files
+  .user      - 8 files
+  .cmd       - 8 files
+             - 7 files
+  .png       - 6 files
+  .dylib     - 6 files
+  .yml       - 2 files
+  .md        - 2 files
+  .BuildWithSkipAnalyzers - 1 files
+  .gitattributes - 1 files
+  .gitignore - 1 files
+  .sln       - 1 files
+  .migrator  - 1 files
+
+=== YAML FILES (Kubernetes/Helm) ===
+
+=== C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\Chart.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\Chart.yaml ---
+apiVersion: v2
+name: flowers-api
+description: RESTful API для ДЗ
+version: 0.1.0
+appVersion: "1.0.0"
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\Chart.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\values.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\values.yaml ---
+app:
+  image:
+    repository: flowers-api
+    tag: 1.0.0
+    pullPolicy: IfNotPresent
+  port: 80
+
+db:
+  host: postgresql
+  name: users_db
+  user: postgres
+  password: postgres
+
+ingress:
+  enabled: true
+  hosts:
+    - host: arch.homework
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /user
+          pathType: Prefix
+
+config:
+  appsettings: |-
+    {
+      "ConnectionStrings": {
+        "DefaultConnection": "Host=postgresql;Port=5432;Database=users_db;Username=postgres;Password=postgres"
+      },
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information",
+          "Microsoft.AspNetCore": "Warning"
+        }
+      },
+      "AllowedHosts": "*"
+    }
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\values.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\configmap.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\configmap.yaml ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  appsettings.json: |-
+    {{ .Values.config.appsettings | nindent 4 }}
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\configmap.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\deployment.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\deployment.yaml ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}
+        image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.app.port }}
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: DOTNET_ENVIRONMENT
+          value: "Production"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+      volumes:
+      - name: config
+        configMap:
+          name: {{ .Release.Name }}-config
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\deployment.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\job.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\job.yaml ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-migration
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrator
+        image: "{{ .Values.app.image.repository }}-migrator:{{ .Values.app.image.tag }}"
+        env:
+        - name: DB_HOST
+          value: {{ .Values.db.host | quote }}
+        - name: DB_NAME
+          value: {{ .Values.db.name | quote }}
+        - name: DB_USER
+          value: {{ .Values.db.user | quote }}
+        - name: DB_PASSWORD
+          value: {{ .Values.db.password | quote }}
+      restartPolicy: Never
+  backoffLimit: 2
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\flowers-api-chart\templates\job.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\configmaps\flowers-config.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\configmaps\flowers-config.yaml ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flowers-config
+data:
+  appsettings.json: |-
+    {
+      "ConnectionStrings": {
+        "DefaultConnection": "Host=postgresql;Port=5432;Database=$(POSTGRES_DB);Username=$(POSTGRES_USER);Password=$(POSTGRES_PASSWORD)"
+      },
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information",
+          "Microsoft.AspNetCore": "Warning"
+        }
+      },
+      "AllowedHosts": "*"
+    }
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\configmaps\flowers-config.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\deployments\flowers-deployment.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\deployments\flowers-deployment.yaml ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flowers-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flowers-api
+  template:
+    metadata:
+      labels:
+        app: flowers-api
+    spec:
+      containers:
+      - name: flowers-api
+        image: flowers-api:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: flowers-config
+        - secretRef:
+            name: db-secret
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_PASSWORD
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\deployments\flowers-deployment.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\ingress\flowers-ingress.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\ingress\flowers-ingress.yaml ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flowers-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS, DELETE"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: arch.homework
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: flowers-service
+            port:
+              number: 80
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\ingress\flowers-ingress.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\jobs\db-migration-job.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\jobs\db-migration-job.yaml ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrator
+        image: bitnamilegacy/postgresql:17.6.0-debian-12-r4
+        env:
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_USER
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_PASSWORD
+        - name: PGDATABASE
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_DB
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Функция для создания базы данных
+            create_database() {
+              local db_name=$1
+              echo "Creating database: $db_name"
+              psql -h postgresql -U $PGUSER -d $PGDATABASE -c "CREATE DATABASE $db_name;"
+            }
+
+            # Ожидание PostgreSQL
+            until pg_isready -h postgresql -U $PGUSER -d $PGDATABASE; do
+              sleep 2
+              echo "Waiting for PostgreSQL..."
+            done
+
+            # Создаем базы данных для каждого сервиса
+            create_database "auth_db"
+            create_database "user_db" 
+            create_database "order_db"
+            create_database "billing_db"
+            create_database "notification_db"
+
+            # 1. Auth Service Database
+            echo "Setting up auth_db..."
+            psql -h postgresql -U $PGUSER -d auth_db -c "
+              CREATE TABLE IF NOT EXISTS users (
+                id BIGSERIAL PRIMARY KEY,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                firstname VARCHAR(255) NOT NULL,
+                lastname VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                phone VARCHAR(50) NOT NULL
+              );"
+
+            psql -h postgresql -U $PGUSER -d auth_db -c "
+              CREATE TABLE IF NOT EXISTS auth_users (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL
+              );"
+
+            # 2. User Service Database
+            echo "Setting up user_db..."
+            psql -h postgresql -U $PGUSER -d user_db -c "
+              CREATE TABLE IF NOT EXISTS users (
+                id BIGSERIAL PRIMARY KEY,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                firstname VARCHAR(255) NOT NULL,
+                lastname VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                phone VARCHAR(50) NOT NULL
+              );"
+
+            # 3. Billing Service Database  
+            echo "Setting up billing_db..."
+            psql -h postgresql -U $PGUSER -d billing_db -c "
+              CREATE TABLE IF NOT EXISTS accounts (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+                UNIQUE(user_id)
+              );"
+
+            psql -h postgresql -U $PGUSER -d billing_db -c "
+              CREATE TABLE IF NOT EXISTS payment_transactions (
+                id BIGSERIAL PRIMARY KEY,
+                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                user_id BIGINT NOT NULL,
+                order_id BIGINT,
+                amount DECIMAL(18,2) NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+              );"
+
+            # 4. Order Service Database
+            echo "Setting up order_db..."
+            psql -h postgresql -U $PGUSER -d order_db -c "
+              CREATE TABLE IF NOT EXISTS orders (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                amount DECIMAL(18,2) NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                product_id VARCHAR(255),
+                quantity INTEGER DEFAULT 0,
+                delivery_slot TIMESTAMP
+              );"
+
+            psql -h postgresql -U $PGUSER -d order_db -c "
+              CREATE TABLE IF NOT EXISTS completed_sagas (
+                id BIGSERIAL PRIMARY KEY,
+                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                order_id BIGINT NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                error_message TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );"
+
+            # 5. Notification Service Database
+            echo "Setting up notification_db..."
+            psql -h postgresql -U $PGUSER -d notification_db -c "
+              CREATE TABLE IF NOT EXISTS notifications (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50) NOT NULL DEFAULT 'Sent'
+              );"
+
+            echo "=== Database Structure Summary ==="
+            echo "auth_db tables:"
+            psql -h postgresql -U $PGUSER -d auth_db -c "\dt"
+            
+            echo "user_db tables:"
+            psql -h postgresql -U $PGUSER -d user_db -c "\dt"
+            
+            echo "billing_db tables:"
+            psql -h postgresql -U $PGUSER -d billing_db -c "\dt"
+            
+            echo "order_db tables:"
+            psql -h postgresql -U $PGUSER -d order_db -c "\dt"
+            
+            echo "notification_db tables:"
+            psql -h postgresql -U $PGUSER -d notification_db -c "\dt"
+
+            echo "Migration completed successfully!"
+      restartPolicy: Never
+  backoffLimit: 2
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\jobs\db-migration-job.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\secrets\db-secret.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\secrets\db-secret.yaml ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+data:
+  POSTGRES_USER: cG9zdGdyZXM=
+  POSTGRES_PASSWORD: cG9zdGdyZXM=
+  POSTGRES_DB: dXNlcnNfZGI= 
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\secrets\db-secret.yaml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\services\flowers-service.yaml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\services\flowers-service.yaml ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flowers-service
+spec:
+  selector:
+    app: flowers-api
+  ports:
+  - protocol: TCP
+    port: 80       
+    targetPort: 8080
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\kubernetes-manifests\services\flowers-service.yaml ---
+
+=== YML FILES ===
+
+=== C:\Users\User\source\repos\Flowers\docker-compose.yml ===
+--- File start: C:\Users\User\source\repos\Flowers\docker-compose.yml ---
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  postgresql:
+    image: bitnamilegacy/postgresql:17.6.0-debian-12-r4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Auth/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=auth_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5001:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  user-service:
+    build:
+      context: .
+      dockerfile: User/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=user_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5002:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Order/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=order_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5003:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: Billing/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=billing_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5004:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Notification/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=notification_db;Username=postgres;Password=postgres"
+      Kafka__BootstrapServers: "kafka:9092"
+    ports:
+      - "5005:8080"
+    depends_on:
+      - postgresql
+      - kafka
+
+volumes:
+  postgres_data:
+--- File end: C:\Users\User\source\repos\Flowers\docker-compose.yml ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\prometheus.yml ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\prometheus.yml ---
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'flowers_api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['arch.homework:9090']
+    scheme: 'http'
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\prometheus.yml ---
+
+=== DOCKERFILE ===
+
+=== C:\Users\User\source\repos\Flowers\Billing\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["Billing/Billing.csproj", "Billing/"]
+RUN dotnet restore "Billing/Billing.csproj"
+COPY . .
+RUN dotnet publish "Billing/Billing.csproj" -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Billing.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Dockerfile ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["Delivery/Delivery.csproj", "Delivery/"]
+RUN dotnet restore "Delivery/Delivery.csproj"
+COPY . .
+RUN dotnet publish "Delivery/Delivery.csproj" -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Delivery.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\Dockerfile ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY *.csproj .
+RUN dotnet restore
+COPY . .
+RUN dotnet publish -c Release -o /app /p:AssemblyName=Flowers.Api
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Flowers.Api.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\Dockerfile ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["Notification/Notification.csproj", "Notification/"]
+RUN dotnet restore "Notification/Notification.csproj"
+COPY . .
+RUN dotnet publish "Notification/Notification.csproj" -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Notification.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\Notification\Dockerfile ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["Order/Order.csproj", "Order/"]
+RUN dotnet restore "Order/Order.csproj"
+COPY . .
+RUN dotnet publish "Order/Order.csproj" -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Order.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\Order\Dockerfile ---
+
+=== C:\Users\User\source\repos\Flowers\User\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["User/User.csproj", "User/"]
+RUN dotnet restore "User/User.csproj"
+COPY . .
+RUN dotnet publish "User/User.csproj" -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "User.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\User\Dockerfile ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Dockerfile ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Dockerfile ---
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["Warehouse/Warehouse.csproj", "Warehouse/"]
+RUN dotnet restore "Warehouse/Warehouse.csproj"
+COPY . .
+RUN dotnet publish "Warehouse/Warehouse.csproj" -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Warehouse.dll"]
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Dockerfile ---
+
+=== C# FILES ===
+
+=== C:\Users\User\source\repos\Flowers\Billing\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Program.cs ---
+using Billing.Data;
+using Billing.Interfaces;
+using Billing.Services;
+
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Database
+builder.Services.AddDbContext<BillingDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Services
+builder.Services.AddScoped<IBillingService, BillingService>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Controllers\BillingController.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Controllers\BillingController.cs ---
+using Billing.Interfaces;
+using Billing.Models;
+
+using Microsoft.AspNetCore.Mvc;
+
+namespace Billing.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class BillingController : ControllerBase
+    {
+        private readonly IBillingService _billingService;
+        private readonly ILogger<BillingController> _logger;
+
+        public BillingController(IBillingService billingService, ILogger<BillingController> logger)
+        {
+            _billingService = billingService;
+            _logger = logger;
+        }
+
+        [HttpPost("deposit")]
+        public async Task<IActionResult> Deposit([FromBody] DepositRequest request)
+        {
+            try
+            {
+                var result = await _billingService.DepositAsync(request);
+
+                if (result)
+                {
+                    var balance = await _billingService.GetBalanceAsync(request.UserId);
+                    return Ok(new { success = true, balance });
+                }
+
+                return BadRequest(new { error = "Deposit failed" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in deposit");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+        [HttpPost("withdraw")]
+        public async Task<IActionResult> Withdraw([FromBody] WithdrawRequest request)
+        {
+            try
+            {
+                var result = await _billingService.WithdrawAsync(request);
+
+                if (result)
+                {
+                    var balance = await _billingService.GetBalanceAsync(request.UserId);
+                    return Ok(new { success = true, balance });
+                }
+
+                return BadRequest(new { error = "Withdrawal failed - insufficient funds" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in withdraw");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+        [HttpGet("balance/{userId}")]
+        public async Task<IActionResult> GetBalance(long userId)
+        {
+            try
+            {
+                var balance = await _billingService.GetBalanceAsync(userId);
+                return Ok(new { balance });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting balance");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Controllers\BillingController.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Data\BillingDbContext.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Data\BillingDbContext.cs ---
+using Billing.Models;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Billing.Data
+{
+    public class BillingDbContext : DbContext
+    {
+        public BillingDbContext(DbContextOptions<BillingDbContext> options) : base(options) { }
+
+        public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+        public DbSet<Account> Accounts { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Account>()
+                .HasIndex(a => a.UserId)
+                .IsUnique();
+
+            modelBuilder.Entity<PaymentTransaction>()
+                .HasIndex(p => p.IdempotencyKey)
+                .IsUnique();
+
+            base.OnModelCreating(modelBuilder);
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Data\BillingDbContext.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Interfaces\IBillingService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Interfaces\IBillingService.cs ---
+using Billing.Models;
+
+namespace Billing.Interfaces
+{
+    public interface IBillingService
+    {
+        Task<bool> WithdrawAsync(WithdrawRequest request);
+        Task<bool> DepositAsync(DepositRequest request);
+        Task<decimal> GetBalanceAsync(long userId);
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Interfaces\IBillingService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Models\Account.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Models\Account.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Billing.Models
+{
+    [Table("accounts")]
+    public class Account
+    {
+        [Column("id")]
+        public long Id { get; set; }
+
+        [Column("user_id")]
+        public long UserId { get; set; }
+
+        [Column("balance")]
+        public decimal Balance { get; set; } = 0;
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Models\Account.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Models\DepositRequest.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Models\DepositRequest.cs ---
+namespace Billing.Models
+{
+    public class DepositRequest
+    {
+        public long UserId { get; set; }
+        public decimal Amount { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Models\DepositRequest.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Models\PaymentTransaction.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Models\PaymentTransaction.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Billing.Models
+{
+    [Table("payment_transactions")]
+    public class PaymentTransaction
+    {
+        [Column("id")]
+        public long Id { get; set; }
+
+        [Column("idempotency_key")]
+        public string? IdempotencyKey { get; set; }
+
+        [Column("user_id")]
+        public long UserId { get; set; }
+
+        [Column("order_id")]
+        public long? OrderId { get; set; }
+
+        [Column("amount")]
+        public decimal Amount { get; set; }
+
+        [Column("status")]
+        public string? Status { get; set; } // Processing, Completed, Failed
+
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; }
+
+        [Column("completed_at")]
+        public DateTime? CompletedAt { get; set; }
+
+        //[ForeignKey("UserId")]
+        //public User? User { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Models\PaymentTransaction.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Models\WithdrawRequest.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Models\WithdrawRequest.cs ---
+namespace Billing.Models
+{
+    public class WithdrawRequest
+    {
+        public long UserId { get; set; }
+        
+        public decimal Amount { get; set; }
+
+        public string? IdempotencyKey { get; set; }
+
+        public long? OrderId { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Models\WithdrawRequest.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Billing")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Billing")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Billing")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Microsoft.AspNetCore.OpenApi")]
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\Billing.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\BillingService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\BillingService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("BillingService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("BillingService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("BillingService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\BillingService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\BillingService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\BillingService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Billing\obj\Debug\net9.0\BillingService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Billing\Services\BillingService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Services\BillingService.cs ---
+using Billing.Data;
+using Billing.Interfaces;
+using Billing.Models;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Billing.Services
+{
+    public class BillingService : IBillingService
+    {
+        private readonly BillingDbContext _context;
+        private readonly ILogger<BillingService> _logger;
+
+        public BillingService(BillingDbContext context, ILogger<BillingService> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        public async Task<bool> DepositAsync(DepositRequest request)
+        {
+            try
+            {
+                var transaction = new PaymentTransaction
+                {
+                    UserId = request.UserId,
+                    Amount = request.Amount,
+                    Status = "Completed",
+                    CreatedAt = DateTime.UtcNow,
+                    CompletedAt = DateTime.UtcNow,
+                    IdempotencyKey = Guid.NewGuid().ToString()
+                };
+
+                _context.PaymentTransactions.Add(transaction);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Deposited {request.Amount} for user {request.UserId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error depositing for user {request.UserId}");
+                return false;
+            }
+        }
+
+        public async Task<decimal> GetBalanceAsync(long userId)
+        {
+            try
+            {
+                var deposits = await _context.PaymentTransactions
+                    .Where(t => t.UserId == userId && t.Status == "Completed" && t.Amount > 0)
+                    .SumAsync(t => t.Amount);
+
+                var withdrawals = await _context.PaymentTransactions
+                    .Where(t => t.UserId == userId && t.Status == "Completed" && t.Amount < 0)
+                    .SumAsync(t => t.Amount);
+
+                return deposits + withdrawals;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting balance for user {userId}");
+                return 0;
+            }
+        }
+
+        public async Task<bool> WithdrawAsync(WithdrawRequest request)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Проверяем идемпотентность
+                if (!string.IsNullOrEmpty(request.IdempotencyKey))
+                {
+                    var existingTransaction = await _context.PaymentTransactions
+                        .FirstOrDefaultAsync(t => t.IdempotencyKey == request.IdempotencyKey);
+
+                    if (existingTransaction != null)
+                    {
+                        _logger.LogInformation($"Idempotent request detected for key {request.IdempotencyKey}");
+                        return existingTransaction.Status == "Completed";
+                    }
+                }
+
+                var balance = await GetBalanceAsync(request.UserId);
+
+                if (balance < request.Amount)
+                {
+                    _logger.LogWarning($"Insufficient funds for user {request.UserId}. Balance: {balance}, Requested: {request.Amount}");
+                    return false;
+                }
+
+                var paymentTransaction = new PaymentTransaction
+                {
+                    UserId = request.UserId,
+                    OrderId = request.OrderId,
+                    Amount = -request.Amount, // Отрицательная сумма для списания
+                    Status = "Completed",
+                    IdempotencyKey = request.IdempotencyKey ?? Guid.NewGuid().ToString(),
+                    CreatedAt = DateTime.UtcNow,
+                    CompletedAt = DateTime.UtcNow
+                };
+
+                _context.PaymentTransactions.Add(paymentTransaction);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation($"Withdrawn {request.Amount} from user {request.UserId} for order {request.OrderId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, $"Error withdrawing for user {request.UserId}");
+                return false;
+            }
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Services\BillingService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\Billing.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\Billing.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Billing")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Billing")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Billing")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\Billing.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\Billing.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\Billing.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\BillingService\obj\Debug\net9.0\Billing.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\Interfaces\IDeliveryService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\Interfaces\IDeliveryService.cs ---
+using DeliveryService.Models;
+
+namespace DeliveryService.Interfaces
+{
+    public interface IDeliveryService
+    {
+        Task<bool> ReserveCourierAsync(ReserveCourierRequest request);
+        Task<bool> CancelCourierAsync(CancelCourierRequest request);
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\Interfaces\IDeliveryService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\Models\Delivery.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\Models\Delivery.cs ---
+namespace DeliveryService.Models
+{
+    public class Delivery
+    {
+        public long Id { get; set; }
+        public long OrderId { get; set; }
+        public long UserId { get; set; }
+        public string CourierId { get; set; } = string.Empty;
+        public DateTime DeliverySlot { get; set; }
+        public string Status { get; set; } = "Pending";
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class ReserveCourierRequest
+    {
+        public long OrderId { get; set; }
+        public long UserId { get; set; }
+        public DateTime DeliverySlot { get; set; }
+    }
+
+    public class CancelCourierRequest
+    {
+        public long OrderId { get; set; }
+        public string CourierId { get; set; } = string.Empty;
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\Models\Delivery.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\Delivery.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\DeliveryService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\DeliveryService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("DeliveryService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("DeliveryService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("DeliveryService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\DeliveryService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\DeliveryService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\DeliveryService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net8.0\DeliveryService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\obj\Debug\net9.0\Delivery.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\Services\DeliveryService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\Services\DeliveryService.cs ---
+using DeliveryService.Interfaces;
+using DeliveryService.Models;
+
+namespace DeliveryService.Services
+{
+    public class DeliveryService : IDeliveryService
+    {
+        private readonly ILogger<DeliveryService> _logger;
+
+        public DeliveryService(ILogger<DeliveryService> logger)
+        {
+            _logger = logger;
+        }
+
+        public async Task<bool> ReserveCourierAsync(ReserveCourierRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"Reserving courier for order {request.OrderId}, slot: {request.DeliverySlot}");
+
+                // Эмуляция проверки доступности курьера
+                await Task.Delay(100);
+
+                // Бизнес-правила: нет курьеров рано утром и поздно вечером
+                if (request.DeliverySlot.TimeOfDay < TimeSpan.FromHours(9) ||
+                    request.DeliverySlot.TimeOfDay > TimeSpan.FromHours(18))
+                {
+                    _logger.LogWarning($"No couriers available for slot {request.DeliverySlot}");
+
+                    return false;
+                }
+
+                // Эмуляция случая, когда все курьеры заняты
+                if (request.DeliverySlot.DayOfWeek == DayOfWeek.Sunday)
+                {
+                    _logger.LogWarning($"No couriers available on Sunday");
+
+                    return false;
+                }
+
+                _logger.LogInformation($"Courier reserved successfully for order {request.OrderId}");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error reserving courier for order {request.OrderId}");
+
+                return false;
+            }
+        }
+
+        public async Task<bool> CancelCourierAsync(CancelCourierRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"Cancelling courier for order {request.OrderId}");
+
+                // Эмуляция отмены бронирования курьера
+                await Task.Delay(100);
+
+                _logger.LogInformation($"Courier reservation cancelled successfully");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error cancelling courier for order {request.OrderId}");
+
+                return false;
+            }
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\Services\DeliveryService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\Delivery.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\Delivery.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Delivery")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\Delivery.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\Delivery.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\Delivery.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\DeliveryService\obj\Debug\net8.0\Delivery.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\Program.cs ---
+#region ЮЗИНГИ
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
+
+using Microsoft.EntityFrameworkCore;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
+
+using Prometheus;
+
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+using static System.Runtime.InteropServices.JavaScript.JSType;
+#endregion
+
+#region БАЗОВАЯ ИНИЦИАЛИЗАЦИЯ
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors();
+builder.Services.AddRouting();
+
+// Добавляем после builder.Services.AddControllers();
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"] ?? "default-secret-key-at-least-32-characters-long";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+#endregion
+
+//builder.Services.AddAuthorization();
+
+//// Добавляем хеширование паролей
+//builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+
+//builder.Services.AddScoped<IBillingService, BillingService>();
+//builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+//builder.Services.AddScoped<IDeliveryService, DeliveryService>();
+//builder.Services.AddScoped<IOrderSagaService, OrderSagaService>();
+
+//// Загрузка конфигурации из /app/config
+//if (File.Exists("/app/config/appsettings.json"))
+//{
+//    builder.Configuration.AddJsonFile("/app/config/appsettings.json", optional: false, reloadOnChange: true);
+//}
+
+//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+//// Configure DbContext with PostgreSQL
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//{
+//    options.UseNpgsql(connectionString, options =>
+//    {
+//        options.EnableRetryOnFailure(
+//            maxRetryCount: 3,
+//            maxRetryDelay: TimeSpan.FromSeconds(5),
+//            errorCodesToAdd: null);
+//    });
+//    options.LogTo(Console.WriteLine, LogLevel.Information);
+//});
+
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true; // Отключение автоматической валидации
+});
+
+var app = builder.Build();
+
+//app.UseCors(builder => builder.AllowAnyOrigin());
+//app.UseAuthentication();
+//app.UseAuthorization();
+
+//// Configure the HTTP request pipeline.
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseDeveloperExceptionPage();
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+//else
+//{
+//    app.UseExceptionHandler("/Error");
+//    app.UseHsts();
+//}
+
+//// Корневой endpoint
+//app.MapGet("/", () => "Flowers API is running");
+//#endregion
+
+//#region АУТЕНТИФИКАЦИЯ
+//var authGroup = app.MapGroup("/auth");
+
+//// Регистрация
+//authGroup.MapPost("/register", async (RegisterRequest request, AppDbContext context,
+//    IPasswordHasher passwordHasher, IConfiguration configuration) =>
+//{
+//    if (await context.AuthUsers.AnyAsync(u => u.Username == request.Username))
+//        return Results.BadRequest("Username already exists");
+
+//    if (await context.Users.AnyAsync(u => u.Email == request.Email))
+//        return Results.BadRequest("Email already exists");
+
+//    var user = new User
+//    {
+//        Username = request.Username,
+//        FirstName = request.FirstName,
+//        LastName = request.LastName,
+//        Email = request.Email,
+//        Phone = request.Phone
+//    };
+
+//    if (context.Users.Contains(user))
+//    {
+//        return Results.Conflict(new
+//        {
+//            Error = "User already exists",
+//            Username = request.Username,
+//            FirstName = request.FirstName,
+//            LastName = request.LastName,
+//            Email = request.Email,
+//            Phone = request.Phone
+//        });
+//    }
+
+//    context.Users.Add(user);
+
+//    await context.SaveChangesAsync();
+
+//    var authUser = new AuthUser
+//    {
+//        UserId = user.Id,
+//        Username = request.Username,
+//        PasswordHash = passwordHasher.HashPassword(request.Password)
+//    };
+
+//    context.AuthUsers.Add(authUser);
+
+//    await context.SaveChangesAsync();
+
+//    var account = new Account
+//    {
+//        UserId = user.Id,
+//        Balance = 0
+//    };
+
+//    context.Accounts.Add(account);
+
+//    await context.SaveChangesAsync();
+
+//    var token = Jwt.GenerateJwtToken(user.Id, user.Username, configuration);
+
+//    return Results.Ok(new AuthResponse
+//    {
+//        Token = token,
+//        UserId = user.Id,
+//        Username = user.Username
+//    });
+//});
+
+//// Логин
+//authGroup.MapPost("/login", async (LoginRequest request, AppDbContext context, IPasswordHasher passwordHasher, IConfiguration configuration) =>
+//{
+//    var authUser = await context.AuthUsers
+//        .Include(au => au.User)
+//        .FirstOrDefaultAsync(u => u.Username == request.Username);
+
+//    if (authUser == null || !passwordHasher.VerifyPassword(request.Password, authUser.PasswordHash))
+//        return Results.Unauthorized();
+
+//    var token = Jwt.GenerateJwtToken(authUser.UserId, authUser.Username, configuration);
+
+//    return Results.Ok(new AuthResponse
+//    {
+//        Token = token,
+//        UserId = authUser.UserId,
+//        Username = authUser.Username
+//    });
+//});
+//#endregion
+
+//#region СЕРВИС СКЛАДА
+
+//var warehouseGroup = app.MapGroup("/warehouse");
+
+//warehouseGroup.MapPost("/reserve", async (ReserveProductRequest request, IWarehouseService service) =>
+//{
+//    try
+//    {
+//        var result = await service.ReserveProductAsync(request);
+
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("ReserveProduct");
+
+//warehouseGroup.MapPost("/release", async (ReleaseProductRequest request, IWarehouseService service) =>
+//{
+//    try
+//    {
+//        var result = await service.ReleaseProductAsync(request);
+
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("ReleaseProduct");
+//#endregion
+
+//#region СЕРВИС ДОСТАВКИ
+//var deliveryGroup = app.MapGroup("/delivery");
+
+//deliveryGroup.MapPost("/reserve", async (ReserveCourierRequest request, IDeliveryService service) =>
+//{
+//    try
+//    {
+//        var result = await service.ReserveCourierAsync(request);
+
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("ReserveCourier");
+
+//deliveryGroup.MapPost("/cancel", async (CancelCourierRequest request, IDeliveryService service) =>
+//{
+//    try
+//    {
+//        var result = await service.CancelCourierAsync(request);
+
+//        return Results.Ok(result);
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).WithName("CancelCourier");
+//#endregion
+
+//#region СЕРВИС БИЛЛИНГ
+//var billingGroup = app.MapGroup("/bill");
+
+//// Пополнение счета
+//billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService service) =>
+//{
+//    try
+//    {
+//        var result = await service.DepositAsync(request);
+
+//        if (result)
+//        {
+//            var newBalance = await service.GetBalanceAsync(request.UserId);
+
+//            return Results.Ok(new { newBalance });
+//        }
+        
+//        return Results.BadRequest(new { error = "Deposit failed" });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).RequireAuthorization()
+//.WithName("Deposit");
+
+//// Получение баланса
+//billingGroup.MapGet("/balance/{userId}", async (long userId, IBillingService service) =>
+//{
+//    try
+//    {
+//        var balance = await service.GetBalanceAsync(userId);
+
+//        return Results.Ok(new { balance });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).RequireAuthorization()
+//.WithName("GetBalance");
+
+//// Снятие денег
+//billingGroup.MapPost("/withdraw", async (WithdrawRequest request, IBillingService service) =>
+//{
+//    try
+//    {
+//        var result = await service.WithdrawAsync(request);
+
+//        if (result)
+//        {
+//            var newBalance = await service.GetBalanceAsync(request.UserId);
+
+//            return Results.Ok(new { newBalance });
+//        }
+
+//        return Results.BadRequest(new { error = "Withdrawal failed - insufficient funds" });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = ex.Message });
+//    }
+//}).RequireAuthorization()
+//.WithName("Withdraw");
+//#endregion
+
+//#region СЕРВИС ЗАКАЗОВ
+//var ordersGroup = app.MapGroup("/orders");
+
+//// Создание заказа
+//ordersGroup.MapPost("/", async (CreateOrderRequest request, HttpContext context, IOrderSagaService sagaService) =>
+//{
+//    var result = new CreateOrderResponse();
+
+//    try
+//    {
+//        // Получение userId из JWT токена
+//        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+
+//        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
+//            return Results.Unauthorized();
+
+//        result = await sagaService.CreateOrderAsync(request, userId);
+
+//        if (result?.Status == "Completed")
+//            return Results.Ok(result);
+//        else
+//            return Results.BadRequest(new { error = result?.ErrorMessage ?? "" });
+//    }
+//    catch (Exception ex)
+//    {
+//        return Results.BadRequest(new { error = result?.ErrorMessage ?? ex.Message ?? "" });
+//    }
+//}).RequireAuthorization();
+
+//// Получение заказов пользователя
+//ordersGroup.MapGet("/", async (AppDbContext context, HttpContext httpContext) =>
+//{
+//    var userId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+//    var orders = await context.Orders
+//        .Where(o => o.UserId == userId)
+//        .OrderByDescending(o => o.CreatedAt)
+//        .ToListAsync();
+
+//    return Results.Ok(orders);
+//}).RequireAuthorization();
+//#endregion
+
+//#region СЕРВИС УВЕДОМЛЕНИЙ
+//var notifGroup = app.MapGroup("/notif");
+
+//// Получение уведомлений пользователя
+//notifGroup.MapGet("/notifications/{userId:long}", async (long userId, AppDbContext context) =>
+//{
+//    var notifications = await context.Notifications
+//        .Where(n => n.UserId == userId)
+//        .OrderByDescending(n => n.CreatedAt)
+//        .ToListAsync();
+
+//    return Results.Ok(notifications);
+//}).RequireAuthorization();
+//#endregion
+
+//#region ПОЛЬЗОВАТЕЛИ
+
+//var userGroup = app.MapGroup("/user");
+
+//// Получение всех пользователей
+//userGroup.MapGet("/", async (AppDbContext context) =>
+//{
+//    var users = await context.Users.ToListAsync();
+
+//    return Results.Ok(users);
+//});
+
+//// Создание пользователя
+//userGroup.MapPost("/", async (User user, AppDbContext context) =>
+//{
+//    context.Users.Add(user);
+
+//    await context.SaveChangesAsync();
+
+//    return Results.Created($"/user/{user.Id}", user);
+//});
+
+//// Получение пользователя по ID с проверкой авторизации
+//userGroup.MapGet("/{userId:long}", async (long userId, AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+//    if (currentUserId != userId)
+//        return Results.Forbid();
+
+//    var user = await context.Users.FindAsync(userId);
+
+//    return user is null ? Results.NotFound() : Results.Ok(user);
+//}).RequireAuthorization();
+
+//// Обновление пользователя с проверкой авторизации
+//userGroup.MapPut("/{userId:long}", async (long userId, User updatedUser, AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+//    if (currentUserId != userId)
+//        return Results.Forbid();
+
+//    var user = await context.Users.FindAsync(userId);
+
+//    if (user is null) 
+//        return Results.NotFound();
+
+//    if (updatedUser.Username != null) user.Username = updatedUser.Username;
+//    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
+//    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
+//    if (updatedUser.Email != null) user.Email = updatedUser.Email;
+//    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
+
+//    await context.SaveChangesAsync();
+
+//    return Results.Ok(user);
+//}).RequireAuthorization();
+
+//// Получение профиля текущего пользователя
+//userGroup.MapGet("/profile", async (AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    
+//    var user = await context.Users.FindAsync(currentUserId);
+    
+//    return user is null ? Results.NotFound() : Results.Ok(user);
+//}).RequireAuthorization();
+
+//// Обновление профиля текущего пользователя
+//userGroup.MapPut("/profile", async (User updatedUser, AppDbContext context, HttpContext httpContext) =>
+//{
+//    var currentUserId = long.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+    
+//    var user = await context.Users.FindAsync(currentUserId);
+    
+//    if (user is null) 
+//        return Results.NotFound();
+
+//    if (updatedUser.Username != null) user.Username = updatedUser.Username;
+//    if (updatedUser.FirstName != null) user.FirstName = updatedUser.FirstName;
+//    if (updatedUser.LastName != null) user.LastName = updatedUser.LastName;
+//    if (updatedUser.Email != null) user.Email = updatedUser.Email;
+//    if (updatedUser.Phone != null) user.Phone = updatedUser.Phone;
+
+//    await context.SaveChangesAsync();
+
+//    return Results.Ok(user);
+//}).RequireAuthorization();
+
+//// Удаление пользователя
+//userGroup.MapDelete("/{userId:long}", async (long userId, AppDbContext context) =>
+//{
+//    var user = await context.Users.FindAsync(userId);
+
+//    if (user is null) 
+//        return Results.NotFound();
+
+//    context.Users.Remove(user);
+
+//    await context.SaveChangesAsync();
+    
+//    return Results.NoContent();
+//});
+//#endregion
+
+//#region ПРОВЕРКА ЗДОРОВЬЯ
+//// Health checks endpoints
+//app.MapHealthChecks("/health");
+//app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
+//{
+//    ResponseWriter = async (context, report) =>
+//    {
+//        context.Response.ContentType = "application/json";
+
+//        var response = new
+//        {
+//            Status = report.Status.ToString(),
+//            Checks = report.Entries.Select(e => new
+//            {
+//                Component = e.Key,
+//                Status = e.Value.Status.ToString(),
+//                Description = e.Value.Description
+//            }),
+//            Duration = report.TotalDuration
+//        };
+
+//        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+//    }
+//});
+//#endregion
+
+//#region ОБРАБОТКА ОШИБОК
+//app.Use(async (context, next) =>
+//{
+//    Console.WriteLine($"Received {context.Request.Method} {context.Request.Path}");
+
+//    await next();
+//});
+//#endregion
+
+#region ЗАПУСК
+app.UseExceptionHandler(a => a.Run(async context =>
+{
+    var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+    var exception = exceptionHandlerPathFeature?.Error;
+
+    Console.WriteLine($"Unhandled exception: {exception?.Message}");
+    Console.WriteLine($"Stack trace: {exception?.StackTrace}");
+
+    context.Response.StatusCode = 500;
+
+    await context.Response.WriteAsync("An unexpected error occurred. Please try again later.");
+}));
+
+app.UseHttpMetrics();
+app.MapMetrics();
+app.Run();
+#endregion
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\Models\Error.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\Models\Error.cs ---
+namespace Flowers.Models
+{
+    public class Error
+    {
+        public int Code { get; set; }
+        public required string Message { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\Models\Error.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\Models\Jwt.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\Models\Jwt.cs ---
+using Microsoft.IdentityModel.Tokens;
+
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace Flowers.Models
+{
+    public class Jwt
+    {
+        public static string GenerateJwtToken(long userId, string username, IConfiguration configuration)
+        {
+            var jwtSettings = configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"] ?? "default-secret-key";
+            var issuer = jwtSettings["Issuer"] ?? "flowers-api";
+            var audience = jwtSettings["Audience"] ?? "flowers-client";
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(secretKey);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                    new Claim(ClaimTypes.Name, username)
+                }),
+                Expires = DateTime.UtcNow.AddHours(24),
+                Issuer = issuer,
+                Audience = audience,
+                SigningCredentials = new SigningCredentials(
+                    new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\Models\Jwt.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Flowers")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Flowers")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Flowers")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Prometheus.AspNetCore")]
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net8.0\Flowers.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Flowers")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Flowers")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Flowers")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Prometheus.AspNetCore")]
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\obj\Debug\net9.0\Flowers.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\Notification\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\Data\NotificationDbContext.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\Data\NotificationDbContext.cs ---
+using Microsoft.EntityFrameworkCore;
+
+using NotificationService.Models;
+
+namespace NotificationService.Data
+{
+    public class NotificationDbContext : DbContext
+    {
+        public NotificationDbContext(DbContextOptions<NotificationDbContext> options) : base(options) { }
+
+        public DbSet<Notification> Notifications { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Notification\Data\NotificationDbContext.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\Models\Notification.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\Models\Notification.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace NotificationService.Models
+{
+    [Table("notifications")]
+    public class Notification
+    {
+        [Column("id")]
+        public long Id { get; set; }
+
+        [Column("user_id")]
+        public long UserId { get; set; }
+
+        [Column("email")]
+        public string Email { get; set; } = string.Empty;
+
+        [Column("message")]
+        public string Message { get; set; } = string.Empty;
+
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("status")]
+        public string Status { get; set; } = "Sent";
+
+        //[ForeignKey("UserId")]
+        //public User? User { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Notification\Models\Notification.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Notification")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Notification")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Notification")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Microsoft.AspNetCore.OpenApi")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\Notification.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\NotificationService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\NotificationService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("NotificationService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("NotificationService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("NotificationService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\NotificationService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\NotificationService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\NotificationService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Notification\obj\Debug\net9.0\NotificationService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\Services\NotificationService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\Services\NotificationService.cs ---
+using NotificationService.Data;
+using NotificationService.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace NotificationService.Services
+{
+    public interface INotificationService
+    {
+        Task<bool> SendNotificationAsync(Notification notification);
+        Task<List<Notification>> GetUserNotificationsAsync(long userId);
+    }
+
+    public class NotificationService : INotificationService
+    {
+        private readonly NotificationDbContext _context;
+        private readonly ILogger<NotificationService> _logger;
+
+        public NotificationService(NotificationDbContext context, ILogger<NotificationService> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        public async Task<bool> SendNotificationAsync(Notification notification)
+        {
+            try
+            {
+                _context.Notifications.Add(notification);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Notification sent to user {notification.UserId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error sending notification to user {notification.UserId}");
+                return false;
+            }
+        }
+
+        public async Task<List<Notification>> GetUserNotificationsAsync(long userId)
+        {
+            return await _context.Notifications
+                .Where(n => n.UserId == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Notification\Services\NotificationService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\Notification.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\Notification.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Notification")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Notification")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Notification")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\Notification.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\Notification.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\Notification.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\NotificationService\obj\Debug\net9.0\Notification.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\Order\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Data\OrderDbContext.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Data\OrderDbContext.cs ---
+using Microsoft.EntityFrameworkCore;
+
+using OrderService.Models;
+
+namespace OrderService.Data
+{
+    public class OrderDbContext : DbContext
+    {
+        public OrderDbContext(DbContextOptions<OrderDbContext> options) : base(options) { }
+
+        public DbSet<Order> Orders { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Order\Data\OrderDbContext.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Models\Order.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Models\Order.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace OrderService.Models
+{
+    [Table("orders")]
+    public class Order
+    {
+        [Column("id")]
+        public long Id { get; set; }
+
+        [Column("user_id")]
+        public long UserId { get; set; }
+
+        [Column("amount")]
+        public decimal Amount { get; set; }
+
+        [Column("status")]
+        public string Status { get; set; } = "Pending";
+
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("product_id")]
+        public string? ProductId { get; set; }
+
+        [Column("quantity")]
+        public int Quantity { get; set; }
+
+        [Column("delivery_slot")]
+        public DateTime? DeliverySlot { get; set; }
+
+        //[ForeignKey("UserId")]
+        //public User? User { get; set; }
+    }
+
+    public class CreateOrderRequest
+    {
+        public decimal Amount { get; set; }
+        public string ProductId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public DateTime DeliverySlot { get; set; }
+    }
+
+    public class CreateOrderResponse
+    {
+        public long OrderId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Order\Models\Order.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Order")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Order")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Order")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Microsoft.AspNetCore.OpenApi")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\Order.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\OrderService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\OrderService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("OrderService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("OrderService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("OrderService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\OrderService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\OrderService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\OrderService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Order\obj\Debug\net9.0\OrderService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Services\KafkaService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Services\KafkaService.cs ---
+using Confluent.Kafka;
+
+using System.Text.Json;
+
+namespace OrderService.Services
+{
+    public interface IKafkaProducer
+    {
+        Task ProduceAsync<T>(string topic, T message);
+    }
+
+    public class KafkaProducer : IKafkaProducer
+    {
+        private readonly IProducer<Null, string> _producer;
+        private readonly ILogger<KafkaProducer> _logger;
+
+        public KafkaProducer(IConfiguration configuration, ILogger<KafkaProducer> logger)
+        {
+            var config = new ProducerConfig
+            {
+                BootstrapServers = configuration["Kafka:BootstrapServers"]
+            };
+            _producer = new ProducerBuilder<Null, string>(config).Build();
+            _logger = logger;
+        }
+
+        public async Task ProduceAsync<T>(string topic, T message)
+        {
+            try
+            {
+                var messageJson = JsonSerializer.Serialize(message);
+                await _producer.ProduceAsync(topic, new Message<Null, string> { Value = messageJson });
+                _logger.LogInformation($"Message sent to topic {topic}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error producing message to topic {topic}");
+                throw;
+            }
+        }
+    }
+
+    public interface IKafkaConsumer<T>
+    {
+        void Subscribe(string topic, Action<T> messageHandler);
+    }
+
+    public class KafkaConsumer<T> : IKafkaConsumer<T>, IDisposable
+    {
+        private readonly IConsumer<Ignore, string> _consumer;
+        private readonly ILogger<KafkaConsumer<T>> _logger;
+
+        public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer<T>> logger)
+        {
+            var config = new ConsumerConfig
+            {
+                BootstrapServers = configuration["Kafka:BootstrapServers"],
+                GroupId = $"flowers-{typeof(T).Name}-group",
+                AutoOffsetReset = AutoOffsetReset.Earliest
+            };
+            _consumer = new ConsumerBuilder<Ignore, string>(config).Build();
+            _logger = logger;
+        }
+
+        public void Subscribe(string topic, Action<T> messageHandler)
+        {
+            _consumer.Subscribe(topic);
+
+            Task.Run(() =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        var consumeResult = _consumer.Consume();
+                        var message = JsonSerializer.Deserialize<T>(consumeResult.Message.Value);
+                        if (message != null)
+                        {
+                            messageHandler(message);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error consuming message");
+                    }
+                }
+            });
+        }
+
+        public void Dispose()
+        {
+            _consumer?.Close();
+            _consumer?.Dispose();
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Order\Services\KafkaService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Services\OrderService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Services\OrderService.cs ---
+using OrderService.Data;
+using OrderService.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace OrderService.Services
+{
+    public interface IOrderService
+    {
+        Task<Order> CreateOrderAsync(Order order);
+        Task<Order?> GetOrderAsync(long orderId);
+        Task<List<Order>> GetUserOrdersAsync(long userId);
+        Task<bool> UpdateOrderStatusAsync(long orderId, string status);
+    }
+
+    public class OrderService : IOrderService
+    {
+        private readonly OrderDbContext _context;
+        private readonly IKafkaProducer _kafkaProducer;
+        private readonly ILogger<OrderService> _logger;
+
+        public OrderService(OrderDbContext context, IKafkaProducer kafkaProducer, ILogger<OrderService> logger)
+        {
+            _context = context;
+            _kafkaProducer = kafkaProducer;
+            _logger = logger;
+        }
+
+        public async Task<Order> CreateOrderAsync(Order order)
+        {
+            try
+            {
+                _context.Orders.Add(order);
+                await _context.SaveChangesAsync();
+
+                // Отправляем событие в Kafka
+                await _kafkaProducer.ProduceAsync("order-created", new
+                {
+                    OrderId = order.Id,
+                    order.UserId,
+                    order.Amount,
+                    order.ProductId,
+                    order.Quantity,
+                    order.DeliverySlot
+                });
+
+                _logger.LogInformation($"Order {order.Id} created for user {order.UserId}");
+                return order;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating order");
+                throw;
+            }
+        }
+
+        public async Task<Order?> GetOrderAsync(long orderId)
+        {
+            return await _context.Orders.FindAsync(orderId);
+        }
+
+        public async Task<List<Order>> GetUserOrdersAsync(long userId)
+        {
+            return await _context.Orders
+                .Where(o => o.UserId == userId)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<bool> UpdateOrderStatusAsync(long orderId, string status)
+        {
+            var order = await _context.Orders.FindAsync(orderId);
+            if (order == null) return false;
+
+            order.Status = status;
+            await _context.SaveChangesAsync();
+
+            // Отправляем событие об изменении статуса
+            await _kafkaProducer.ProduceAsync("order-status-updated", new
+            {
+                OrderId = orderId,
+                NewStatus = status
+            });
+
+            return true;
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Order\Services\OrderService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\Order.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\Order.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Order")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Order")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Order")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\Order.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\Order.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\Order.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\OrderService\obj\Debug\net9.0\Order.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\Product\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Product")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Product")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Product")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\Product.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\ProductService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\ProductService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("ProductService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("ProductService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("ProductService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\ProductService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\ProductService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\ProductService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net8.0\ProductService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Product")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Product")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Product")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Product\obj\Debug\net9.0\Product.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\Product.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\Product.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Product")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Product")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Product")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\Product.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\Product.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\Product.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\ProductService\obj\Debug\net8.0\Product.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\AuthController.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\AuthController.cs ---
+using UserService.Data;
+using UserService.Models;
+using UserService.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace UserService.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
+    {
+        private readonly UserDbContext _context;
+        private readonly IUserService _userService;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthController> _logger;
+
+        public AuthController(UserDbContext context, IUserService userService,
+            IConfiguration configuration, ILogger<AuthController> logger)
+        {
+            _context = context;
+            _userService = userService;
+            _configuration = configuration;
+            _logger = logger;
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            try
+            {
+                // Проверяем существование пользователя
+                if (await _context.AuthUsers.AnyAsync(u => u.Username == request.Username))
+                    return BadRequest("Username already exists");
+
+                if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+                    return BadRequest("Email already exists");
+
+                // Создаем пользователя
+                var user = new User
+                {
+                    Username = request.Username,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    Email = request.Email,
+                    Phone = request.Phone
+                };
+
+                var createdUser = await _userService.CreateUserAsync(user);
+                if (createdUser == null)
+                    return BadRequest("Failed to create user");
+
+                // Создаем auth запись
+                var authUser = new AuthUser
+                {
+                    UserId = createdUser.Id,
+                    Username = request.Username,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+                };
+
+                _context.AuthUsers.Add(authUser);
+                await _context.SaveChangesAsync();
+
+                // Генерируем JWT токен
+                var token = GenerateJwtToken(createdUser.Id, createdUser.Username);
+
+                return Ok(new AuthResponse
+                {
+                    Token = token,
+                    UserId = createdUser.Id,
+                    Username = createdUser.Username
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in register");
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            try
+            {
+                var authUser = await _context.AuthUsers
+                    .Include(au => au.User)
+                    .FirstOrDefaultAsync(u => u.Username == request.Username);
+
+                if (authUser == null || !BCrypt.Net.BCrypt.Verify(request.Password, authUser.PasswordHash))
+                    return Unauthorized("Invalid credentials");
+
+                var token = GenerateJwtToken(authUser.UserId, authUser.Username);
+
+                return Ok(new AuthResponse
+                {
+                    Token = token,
+                    UserId = authUser.UserId,
+                    Username = authUser.Username
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in login");
+                return Unauthorized("Login failed");
+            }
+        }
+
+        private string GenerateJwtToken(long userId, string username)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"] ?? "default-secret-key-at-least-32-characters-long";
+            var issuer = jwtSettings["Issuer"] ?? "user-service";
+            var audience = jwtSettings["Audience"] ?? "flowers-client";
+
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var key = System.Text.Encoding.UTF8.GetBytes(secretKey);
+
+            var tokenDescriptor = new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
+            {
+                Subject = new System.Security.Claims.ClaimsIdentity(new[]
+                {
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userId.ToString()),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, username)
+                }),
+                Expires = DateTime.UtcNow.AddHours(24),
+                Issuer = issuer,
+                Audience = audience,
+                SigningCredentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(
+                    new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+                    Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\AuthController.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\User\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Data\UserDbContext.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Data\UserDbContext.cs ---
+using Microsoft.EntityFrameworkCore;
+using UserService.Models;
+
+namespace UserService.Data
+{
+    public class UserDbContext : DbContext
+    {
+        public UserDbContext(DbContextOptions<UserDbContext> options) : base(options) { }
+
+        public DbSet<User> Users { get; set; }
+        public DbSet<AuthUser> AuthUsers { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\Data\UserDbContext.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Interfaces\IPasswordHasher.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Interfaces\IPasswordHasher.cs ---
+namespace DeliveryService.Interfaces
+{
+    public interface IPasswordHasher
+    {
+        string HashPassword(string password);
+
+        bool VerifyPassword(string password, string hashedPassword);
+    }
+
+    public class BCryptPasswordHasher : IPasswordHasher
+    {
+        public string HashPassword(string password)
+        {
+            return BCrypt.Net.BCrypt.HashPassword(password);
+        }
+
+        public bool VerifyPassword(string password, string hashedPassword)
+        {
+            return BCrypt.Net.BCrypt.Verify(password, hashedPassword);
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\Interfaces\IPasswordHasher.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Models\Account.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Models\Account.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Flowers.Models
+{
+    [Table("accounts")]
+    public class Account
+    {
+        [Column("id")]
+        public long Id { get; set; }
+        
+        [Column("user_id")]
+        public long UserId { get; set; }
+        
+        [Column("balance")]
+        public decimal Balance { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\Models\Account.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Models\AuthUser.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Models\AuthUser.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace UserService.Models
+{
+    [Table("auth_users")]
+    public class AuthUser
+    {
+        [Column("id")]
+        public long Id { get; set; }
+
+        [Column("user_id")]
+        public long UserId { get; set; }
+
+        [Column("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [Column("password_hash")]
+        public string PasswordHash { get; set; } = string.Empty;
+
+        [ForeignKey("UserId")]
+        public User? User { get; set; }
+    }
+
+    public class LoginRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class RegisterRequest : LoginRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+    }
+
+    public class AuthResponse
+    {
+        public string Token { get; set; } = string.Empty;
+        public long UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\Models\AuthUser.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Models\User.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Models\User.cs ---
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace UserService.Models
+{
+    [Table("users")]
+    public class User
+    {
+        [Column("id")]
+        public long Id { get; set; }
+
+        [Column("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [Column("firstname")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Column("lastname")]
+        public string LastName { get; set; } = string.Empty;
+
+        [Column("email")]
+        public string Email { get; set; } = string.Empty;
+
+        [Column("phone")]
+        public string Phone { get; set; } = string.Empty;
+
+        public override bool Equals(object? obj)
+        {
+            return obj is User user &&
+                Id == user.Id &&
+                Username == user.Username &&
+                FirstName == user.FirstName &&
+                LastName == user.LastName &&
+                Email == user.Email &&
+                Phone == user.Phone;
+        }
+
+        public override int GetHashCode()
+            => HashCode.Combine(Id, Username, FirstName, LastName, Email, Phone);
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\Models\User.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("User")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("User")]
+[assembly: System.Reflection.AssemblyTitleAttribute("User")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Microsoft.AspNetCore.OpenApi")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\User.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\UserService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\UserService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("UserService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("UserService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("UserService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\UserService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\UserService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\UserService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\User\obj\Debug\net9.0\UserService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\User\Services\UserService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\User\Services\UserService.cs ---
+using UserService.Data;
+using UserService.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace UserService.Services
+{
+    public interface IUserService
+    {
+        Task<User?> CreateUserAsync(User user);
+        Task<User?> GetUserAsync(long userId);
+        Task<User?> GetUserByUsernameAsync(string username);
+        Task<List<User>> GetAllUsersAsync();
+        Task<bool> UpdateUserAsync(User user);
+        Task<bool> DeleteUserAsync(long userId);
+    }
+
+    public class UserService : IUserService
+    {
+        private readonly UserDbContext _context;
+        private readonly ILogger<UserService> _logger;
+
+        public UserService(UserDbContext context, ILogger<UserService> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        public async Task<User?> CreateUserAsync(User user)
+        {
+            try
+            {
+                // Проверяем уникальность username и email
+                if (await _context.Users.AnyAsync(u => u.Username == user.Username))
+                    throw new Exception("Username already exists");
+
+                if (await _context.Users.AnyAsync(u => u.Email == user.Email))
+                    throw new Exception("Email already exists");
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"User {user.Username} created with ID {user.Id}");
+                return user;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating user");
+                throw;
+            }
+        }
+
+        public async Task<User?> GetUserAsync(long userId)
+        {
+            return await _context.Users.FindAsync(userId);
+        }
+
+        public async Task<User?> GetUserByUsernameAsync(string username)
+        {
+            return await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        }
+
+        public async Task<List<User>> GetAllUsersAsync()
+        {
+            return await _context.Users.ToListAsync();
+        }
+
+        public async Task<bool> UpdateUserAsync(User user)
+        {
+            try
+            {
+                var existingUser = await _context.Users.FindAsync(user.Id);
+                if (existingUser == null) return false;
+
+                // Обновляем поля
+                existingUser.Username = user.Username;
+                existingUser.FirstName = user.FirstName;
+                existingUser.LastName = user.LastName;
+                existingUser.Email = user.Email;
+                existingUser.Phone = user.Phone;
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating user {user.Id}");
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteUserAsync(long userId)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null) return false;
+
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting user {userId}");
+                return false;
+            }
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\User\Services\UserService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Program.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Program.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Interfaces\IWarehouseService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Interfaces\IWarehouseService.cs ---
+using Warehouse.Models;
+
+namespace Warehouse.Interfaces
+{
+    public interface IWarehouseService
+    {
+        Task<bool> ReserveProductAsync(ReserveProductRequest request);
+        Task<bool> ReleaseProductAsync(ReleaseProductRequest request);
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Interfaces\IWarehouseService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Models\ReleaseProductRequest.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Models\ReleaseProductRequest.cs ---
+namespace Warehouse.Models
+{
+    public class ReleaseProductRequest
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public long OrderId { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Models\ReleaseProductRequest.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Models\ReserveProductRequest.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Models\ReserveProductRequest.cs ---
+namespace Warehouse.Models
+{
+    public class ReserveProductRequest
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public long OrderId { get; set; }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Models\ReserveProductRequest.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Models\Warehouse.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Models\Warehouse.cs ---
+namespace Warehouse.Models
+{
+    public class Warehouse
+    {
+        public long Id { get; set; }
+        public string ProductId { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public int Reserved { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Models\Warehouse.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\Warehouse.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\WarehouseService.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\WarehouseService.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("WarehouseService")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("WarehouseService")]
+[assembly: System.Reflection.AssemblyTitleAttribute("WarehouseService")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\WarehouseService.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\WarehouseService.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\WarehouseService.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net8.0\WarehouseService.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v9.0", FrameworkDisplayName = ".NET 9.0")]
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.GlobalUsings.g.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.MvcApplicationPartsAssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.MvcApplicationPartsAssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\obj\Debug\net9.0\Warehouse.MvcApplicationPartsAssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Services\WarehouseService.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Services\WarehouseService.cs ---
+using Warehouse.Interfaces;
+using Warehouse.Models;
+
+namespace Flowers.Services
+{
+    public class WarehouseService : IWarehouseService
+    {
+        private readonly ILogger<WarehouseService> _logger;
+
+        public WarehouseService(ILogger<WarehouseService> logger)
+        {
+            _logger = logger;
+        }
+
+        public async Task<bool> ReserveProductAsync(ReserveProductRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"Reserving product {request.ProductId}, quantity: {request.Quantity} for order {request.OrderId}");
+
+                // Эмуляция проверки наличия товара
+                await Task.Delay(100); // Имитация работы с внешним сервисом
+
+                if (request.Quantity > 10) // Предположим, что у нас ограниченный запас
+                {
+                    _logger.LogWarning($"Insufficient stock for product {request.ProductId}");
+
+                    return false;
+                }
+
+                if (request.ProductId == "out_of_stock_product")
+                {
+                    _logger.LogWarning($"Product {request.ProductId} is out of stock");
+
+                    return false;
+                }
+
+                _logger.LogInformation($"Product {request.ProductId} reserved successfully");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error reserving product {request.ProductId}");
+
+                return false;
+            }
+        }
+
+        public async Task<bool> ReleaseProductAsync(ReleaseProductRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"Releasing reservation for product {request.ProductId}, quantity: {request.Quantity} from order {request.OrderId}");
+
+                // Эмуляция освобождения резерва
+                await Task.Delay(100);
+
+                _logger.LogInformation($"Product reservation released successfully");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error releasing product reservation {request.ProductId}");
+
+                return false;
+            }
+        }
+    }
+}
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Services\WarehouseService.cs ---
+
+=== C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+--- File end: C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs ---
+
+=== C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\Warehouse.AssemblyInfo.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\Warehouse.AssemblyInfo.cs ---
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1725fde4636150fe77d6693105e497d098e9032e")]
+[assembly: System.Reflection.AssemblyProductAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Warehouse")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+--- File end: C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\Warehouse.AssemblyInfo.cs ---
+
+=== C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\Warehouse.GlobalUsings.g.cs ===
+--- File start: C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\Warehouse.GlobalUsings.g.cs ---
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+--- File end: C:\Users\User\source\repos\Flowers\WarehouseService\obj\Debug\net8.0\Warehouse.GlobalUsings.g.cs ---
+
+=== CSPROJ FILES (PROJECTS) ===
+
+=== C:\Users\User\source\repos\Flowers\Billing\Billing.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Billing\Billing.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.12.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Billing\Billing.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\Delivery\Delivery.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Delivery\Delivery.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Delivery\Delivery.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\Flowers\Flowers.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Flowers\Flowers.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.19" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Flowers\Flowers.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\Notification\Notification.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Notification\Notification.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.12.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Interfaces\" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Notification\Notification.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\Order\Order.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Order\Order.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.12.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Interfaces\" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Order\Order.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\Product\Product.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Product\Product.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Product\Product.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\User\User.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\User\User.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\User\User.csproj ---
+
+=== C:\Users\User\source\repos\Flowers\Warehouse\Warehouse.csproj ===
+--- File start: C:\Users\User\source\repos\Flowers\Warehouse\Warehouse.csproj ---
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+</Project>
+--- File end: C:\Users\User\source\repos\Flowers\Warehouse\Warehouse.csproj ---
+
+
+=== ANALYSIS COMPLETED ===
+Full results saved to: C:\Users\User\source\repos\Flowers\content-result-20251106-000515.txt
+File size: 185233 bytes

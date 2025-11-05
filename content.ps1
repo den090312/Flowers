@@ -35,7 +35,10 @@ $fileTypes = @(
     @{Name = "YML FILES"; Filter = "*.yml"; Color = "Green"},
     @{Name = "DOCKERFILE"; Filter = "Dockerfile"; Color = "Blue"},
     @{Name = "C# FILES"; Filter = "*.cs"; Color = "Magenta"},
-    @{Name = "CSPROJ FILES (PROJECTS)"; Filter = "*.csproj"; Color = "Cyan"},
+    @{Name = "CSPROJ FILES (PROJECTS)"; Filter = "*.csproj"; Color = "Cyan"}
+)
+
+$fileTypes2 = @(
     @{Name = "CONFIG FILES"; Filter = "*.config"; Color = "DarkCyan"},
     @{Name = "POWERSHELL SCRIPTS"; Filter = "*.ps1"; Color = "Red"},
     @{Name = "SLN FILES"; Filter = "*.sln"; Color = "DarkMagenta"},
