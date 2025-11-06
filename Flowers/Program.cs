@@ -34,7 +34,7 @@ builder.Services.AddRouting();
 
 // Добавляем после builder.Services.AddControllers();
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"] ?? "default-secret-key-at-least-32-characters-long";
+var secretKey = jwtSettings["SecretKey"] ?? "default-secret-key-at-least-32-characters-long-flowers";
 
 builder.Services.AddAuthentication(options =>
 {

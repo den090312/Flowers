@@ -20,3 +20,10 @@ spec:
             name: flowers-service
             port:
               number: 80
+      - path: /bill
+        pathType: Prefix
+        backend:
+          service:
+            name: billing-service
+            port:
+              number: 80
