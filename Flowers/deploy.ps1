@@ -91,11 +91,10 @@ if (-not $ingressInstalled) {
             --set controller.service.type=LoadBalancer `
             --set controller.ingressClassResource.default=true `
             --atomic `
-            --timeout 5m
     }
 
     # Ожидание с прогресс-баром
-    Write-Host "Ожидаем завершения установки (максимум 5 минут)..." -NoNewline
+    Write-Host "Ожидаем завершения установки (максимум 3 минуты)..." -NoNewline
     $timeout = 180 # 3 минуты
     $startTime = Get-Date
 
@@ -197,6 +196,19 @@ try {
     exit 1
 }
 
+# 7.4. Сборка образа billing-api
+Write-Host "`n7.4. Сборка образа billing-api..." -ForegroundColor Green
+try {
+    docker build -t billing-api:latest -f C:/Users/User/source/repos/Flowers/Billing/Dockerfile .
+    if (-not $?) {
+        throw "Ошибка сборки Docker образа billing-api"
+    }
+    Write-Host "Billing API образ успешно собран" -ForegroundColor Green
+} catch {
+    Write-Host "Ошибка при сборке образа billing-api: $_" -ForegroundColor Red
+    exit 1
+}
+
 # 8. Проверка запуска API и вывод логов
 Write-Host "`n8. Проверка flowers-api и вывод логов..." -ForegroundColor Cyan
 $timeout = 120
@@ -249,6 +261,58 @@ while (-not $apiReady) {
     Write-Host "Ожидание API..." -ForegroundColor Gray
 }
 
+# 8.1. Проверка запуска billing-api и вывод логов
+Write-Host "`n8.1. Проверка billing-api и вывод логов..." -ForegroundColor Cyan
+$timeout = 120
+$startTime = Get-Date
+$billingApiReady = $false
+$billingLogsChecked = $false
+
+while (-not $billingApiReady) {
+    try {
+        $pod = kubectl get pod -l app=billing-api -o json | ConvertFrom-Json
+        $status = $pod.items.status
+        
+        if ($status.phase -eq "Running" -and $status.containerStatuses.ready -eq $true) {
+            Write-Host "Billing API Pod запущен!" -ForegroundColor Green
+            
+            # Выводим логи billing-api только один раз
+            if (-not $billingLogsChecked) {
+                Write-Host "`nЛоги billing-api:" -ForegroundColor Yellow
+                $logs = kubectl logs -l app=billing-api --tail=20
+                $logs | ForEach-Object {
+                    if ($_ -match "Now listening on:|Application started|Hosting environment|Content root path") {
+                        Write-Host $_ -ForegroundColor Cyan
+                    } else {
+                        Write-Host $_
+                    }
+                }
+                $billingLogsChecked = $true
+                
+                # Дополнительная проверка ключевых сообщений
+                if ($logs -notmatch "Application started") {
+                    Write-Host "Предупреждение: Billing API не отправил сообщение о старте приложения" -ForegroundColor Yellow
+                }
+            }
+            
+            $billingApiReady = $true
+            break
+        }
+    } catch {
+        # Продолжаем ожидать если команда не сработала
+    }
+    
+    if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
+        Write-Host "Таймаут ожидания Billing API!" -ForegroundColor Red
+        Write-Host "Последние логи billing-api:" -ForegroundColor Red
+        kubectl logs -l app=billing-api --tail=50
+        exit 1
+    }
+    
+    Start-Sleep -Seconds 5
+    Write-Host "Ожидание Billing API..." -ForegroundColor Gray
+}
+
 # 9. Финальные проверки
 Write-Host "`n9. Итоговый статус:" -ForegroundColor Green
 kubectl get pods,svc,ingress
@@ -256,36 +320,58 @@ kubectl get pods,svc,ingress
 # 10. Проверка доступности API
 Write-Host "`n10. Проверка доступности API..." -ForegroundColor Cyan
 $ingressHost = kubectl get ingress -o jsonpath='{.items[0].spec.rules[0].host}'
-$apiUrl = "http://$ingressHost/"
 
-Write-Host "Выполняем тестовый запрос к API: $apiUrl" -ForegroundColor Yellow
+# Проверка основного API
+$apiUrl = "http://$ingressHost/"
+Write-Host "Выполняем тестовый запрос к основному API: $apiUrl" -ForegroundColor Yellow
 
 try {
     $response = Invoke-WebRequest -Uri $apiUrl -Method Get -UseBasicParsing -TimeoutSec 10
     
     if ($response.StatusCode -eq 200) {
-        Write-Host "API успешно отвечает! Результат:" -ForegroundColor Green
+        Write-Host "✅ Основной API успешно отвечает! Результат:" -ForegroundColor Green
         Write-Host $response.Content -ForegroundColor DarkGray
     } else {
-        Write-Host "API вернул неожиданный статус: $($response.StatusCode)" -ForegroundColor Yellow
+        Write-Host "❌ Основной API вернул неожиданный статус: $($response.StatusCode)" -ForegroundColor Yellow
         Write-Host "Ответ сервера:" -ForegroundColor DarkGray
         Write-Host $response.Content
     }
 } catch {
-    Write-Host "Ошибка при запросе к API:" -ForegroundColor Red
+    Write-Host "❌ Ошибка при запросе к основному API:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
+
+# Проверка billing API
+$billingApiUrl = "http://$ingressHost/billing"
+Write-Host "`nВыполняем тестовый запрос к Billing API: $billingApiUrl" -ForegroundColor Yellow
+
+try {
+    $billingResponse = Invoke-WebRequest -Uri $billingApiUrl -Method Get -UseBasicParsing -TimeoutSec 10
+    
+    if ($billingResponse.StatusCode -eq 200) {
+        Write-Host "✅ Billing API успешно отвечает!" -ForegroundColor Green
+        Write-Host $billingResponse.Content -ForegroundColor DarkGray
+    } else {
+        Write-Host "❌ Billing API вернул неожиданный статус: $($billingResponse.StatusCode)" -ForegroundColor Yellow
+        Write-Host "Ответ сервера:" -ForegroundColor DarkGray
+        Write-Host $billingResponse.Content
+    }
+} catch {
+    Write-Host "❌ Ошибка при запросе к Billing API:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     
     # Дополнительная диагностика
-    Write-Host "`nПроверка endpoints сервиса:" -ForegroundColor Yellow
+    Write-Host "`nПроверка endpoints billing сервиса:" -ForegroundColor Yellow
     kubectl get endpoints
     
-    Write-Host "`nПоследние логи API:" -ForegroundColor Yellow
-    kubectl logs -l app=flowers-api --tail=20
+    Write-Host "`nПоследние логи Billing API:" -ForegroundColor Yellow
+    kubectl logs -l app=billing-api --tail=20
 }
 
 Write-Host "`nГотово! Для ручной проверки выполните:" -ForegroundColor Green
-Write-Host "curl $apiUrl" -ForegroundColor Cyan
-Write-Host "или откройте в браузере: $apiUrl" -ForegroundColor Cyan
+Write-Host "Основной API: curl $apiUrl" -ForegroundColor Cyan
+Write-Host "Billing API: curl $billingApiUrl" -ForegroundColor Cyan
+Write-Host "или откройте в браузере соответствующие URL" -ForegroundColor Cyan
 
 # 11. Развертывание Prometheus
 Write-Host "`n11. Развертывание Prometheus" -ForegroundColor Cyan
@@ -528,4 +614,22 @@ try {
 }
 catch {
     Write-Host "Ошибка при запуске pgAdmin: $_" -ForegroundColor Red
+}
+
+# Health checks billing
+Write-Host "Проверка health billing:" -ForegroundColor Yellow
+try {
+    $billingHealthResponse = Invoke-RestMethod -Uri "http://$ingressHost/billing/health" -Method Get -TimeoutSec 10
+    Write-Host "✅ Billing Health check: $($billingHealthResponse)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Billing Health check failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Метрики billing
+Write-Host "Проверка метрик billing:" -ForegroundColor Yellow
+try {
+    $billingMetrics = Invoke-WebRequest -Uri "http://$ingressHost/billing/metrics" -Method Get -TimeoutSec 10
+    Write-Host "✅ Метрики Billing API доступны ($($billingMetrics.Content.Length) bytes)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Метрики Billing API недоступны: $($_.Exception.Message)" -ForegroundColor Red
 }
