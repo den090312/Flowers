@@ -619,7 +619,7 @@ catch {
 # Health checks billing
 Write-Host "Проверка health billing:" -ForegroundColor Yellow
 try {
-    $billingHealthResponse = Invoke-RestMethod -Uri "http://$ingressHost/billing/health" -Method Get -TimeoutSec 10
+    $billingHealthResponse = Invoke-RestMethod -Uri "http://$ingressHost/bill/health" -Method Get -TimeoutSec 10
     Write-Host "✅ Billing Health check: $($billingHealthResponse)" -ForegroundColor Green
 } catch {
     Write-Host "❌ Billing Health check failed: $($_.Exception.Message)" -ForegroundColor Red
@@ -628,7 +628,7 @@ try {
 # Метрики billing
 Write-Host "Проверка метрик billing:" -ForegroundColor Yellow
 try {
-    $billingMetrics = Invoke-WebRequest -Uri "http://$ingressHost/billing/metrics" -Method Get -TimeoutSec 10
+    $billingMetrics = Invoke-WebRequest -Uri "http://$ingressHost/bill/metrics" -Method Get -TimeoutSec 10
     Write-Host "✅ Метрики Billing API доступны ($($billingMetrics.Content.Length) bytes)" -ForegroundColor Green
 } catch {
     Write-Host "❌ Метрики Billing API недоступны: $($_.Exception.Message)" -ForegroundColor Red
