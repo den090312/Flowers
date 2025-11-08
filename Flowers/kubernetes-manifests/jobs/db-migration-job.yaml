@@ -27,124 +27,129 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
+            # Функция для создания БД и таблиц
+            create_database_and_tables() {
+              local db_name=$1
+              local db_user=$2
+              local db_password=$3
+              
+              echo "Creating database: $db_name"
+              
+              # Создаем БД если не существует
+              psql -h postgresql -U $db_user -d postgres -c "CREATE DATABASE $db_name;"
+              
+              # Подключаемся к конкретной БД и создаем таблицы
+              case $db_name in
+                "users_db")
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS users (
+                      id BIGSERIAL PRIMARY KEY,
+                      username VARCHAR(255) NOT NULL UNIQUE,
+                      firstname VARCHAR(255) NOT NULL,
+                      lastname VARCHAR(255) NOT NULL,
+                      email VARCHAR(255) NOT NULL UNIQUE,
+                      phone VARCHAR(50) NOT NULL
+                    );"
+                  
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS auth_users (
+                        id BIGSERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        username VARCHAR(255) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL
+                    );"
+                  ;;
+                
+                "orders_db")
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS orders (
+                      id BIGSERIAL PRIMARY KEY,
+                      user_id BIGINT NOT NULL,
+                      amount DECIMAL(18,2) NOT NULL,
+                      status VARCHAR(50) NOT NULL DEFAULT 'Pending',
+                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      product_id VARCHAR(255),
+                      quantity INTEGER DEFAULT 0,
+                      delivery_slot TIMESTAMP
+                    );"
+                  
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS completed_sagas (
+                      id BIGSERIAL PRIMARY KEY,
+                      idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                      order_id BIGINT NOT NULL,
+                      status VARCHAR(50) NOT NULL,
+                      error_message TEXT,
+                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );"
+                  ;;
+                
+                "billing_db")
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS accounts (
+                      id BIGSERIAL PRIMARY KEY,
+                      user_id BIGINT NOT NULL,
+                      balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+                      UNIQUE(user_id)
+                    );"
+                  
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS payment_transactions (
+                      id BIGSERIAL PRIMARY KEY,
+                      idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+                      user_id BIGINT NOT NULL,
+                      order_id BIGINT,
+                      amount DECIMAL(18,2) NOT NULL,
+                      status VARCHAR(50) NOT NULL,
+                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      completed_at TIMESTAMP
+                    );"
+                  ;;
+                
+                "notifications_db")
+                  psql -h postgresql -U $db_user -d $db_name -c "
+                    CREATE TABLE IF NOT EXISTS notifications (
+                      id BIGSERIAL PRIMARY KEY,
+                      user_id BIGINT NOT NULL,
+                      email VARCHAR(255) NOT NULL,
+                      message TEXT NOT NULL,
+                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      status VARCHAR(50) NOT NULL DEFAULT 'Sent'
+                    );"
+                  ;;
+              esac
+              
+              echo "Database $db_name structure created successfully"
+            }
+            
             # Ожидаем доступности PostgreSQL
             until pg_isready -h postgresql -U $PGUSER -d postgres; do
               sleep 2
               echo "Waiting for PostgreSQL..."
             done
-
-            echo "=== Creating databases ==="
             
-            # Создаем БД users_db
-            psql -h postgresql -U $PGUSER -d postgres -c "CREATE DATABASE IF NOT EXISTS users_db;"
-            # Таблицы для users_db
-            psql -h postgresql -U $PGUSER -d users_db -c "
-              CREATE TABLE IF NOT EXISTS users (
-                id BIGSERIAL PRIMARY KEY,
-                username VARCHAR(255) NOT NULL UNIQUE,
-                firstname VARCHAR(255) NOT NULL,
-                lastname VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL UNIQUE,
-                phone VARCHAR(50) NOT NULL
-              );"
-            psql -h postgresql -U $PGUSER -d users_db -c "
-              CREATE TABLE IF NOT EXISTS auth_users (
-                id BIGSERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL
-              );"
-
-            # Создаем БД orders_db
-            psql -h postgresql -U $PGUSER -d postgres -c "CREATE DATABASE IF NOT EXISTS orders_db;"
-            # Таблицы для orders_db
-            psql -h postgresql -U $PGUSER -d orders_db -c "
-              CREATE TABLE IF NOT EXISTS orders (
-                id BIGSERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                amount DECIMAL(18,2) NOT NULL,
-                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                product_id VARCHAR(255),
-                quantity INTEGER DEFAULT 0,
-                delivery_slot TIMESTAMP
-              );"
-            psql -h postgresql -U $PGUSER -d orders_db -c "
-              CREATE TABLE IF NOT EXISTS completed_sagas (
-                id BIGSERIAL PRIMARY KEY,
-                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
-                order_id BIGINT NOT NULL,
-                status VARCHAR(50) NOT NULL,
-                error_message TEXT,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-              );"
-
-            # Создаем БД billing_db
-            psql -h postgresql -U $PGUSER -d postgres -c "CREATE DATABASE IF NOT EXISTS billing_db;"
-            # Таблицы для billing_db
-            psql -h postgresql -U $PGUSER -d billing_db -c "
-              CREATE TABLE IF NOT EXISTS accounts (
-                id BIGSERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                balance DECIMAL(18,2) NOT NULL DEFAULT 0,
-                UNIQUE(user_id)
-              );"
-            psql -h postgresql -U $PGUSER -d billing_db -c "
-              CREATE TABLE IF NOT EXISTS payment_transactions (
-                id BIGSERIAL PRIMARY KEY,
-                idempotency_key VARCHAR(255) UNIQUE NOT NULL,
-                user_id BIGINT NOT NULL,
-                order_id BIGINT,
-                amount DECIMAL(18,2) NOT NULL,
-                status VARCHAR(50) NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP
-              );"
-
-            # Создаем БД notifications_db
-            psql -h postgresql -U $PGUSER -d postgres -c "CREATE DATABASE IF NOT EXISTS notifications_db;"
-            # Таблицы для notifications_db
-            psql -h postgresql -U $PGUSER -d notifications_db -c "
-              CREATE TABLE IF NOT EXISTS notifications (
-                id BIGSERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                email VARCHAR(255) NOT NULL,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) NOT NULL DEFAULT 'Sent'
-              );"
-
-            echo "=== Migration completed successfully! ==="
-            echo "=== Database list ==="
+            # Создаем отдельные БД для каждого сервиса
+            create_database_and_tables "users_db" $PGUSER $PGPASSWORD
+            create_database_and_tables "orders_db" $PGUSER $PGPASSWORD
+            create_database_and_tables "billing_db" $PGUSER $PGPASSWORD
+            create_database_and_tables "notifications_db" $PGUSER $PGPASSWORD
+            
+            # Выводим информацию о созданных БД
+            echo "=== Database creation completed ==="
             psql -h postgresql -U $PGUSER -d postgres -c "\l"
-
+            
             echo "=== Users DB tables ==="
             psql -h postgresql -U $PGUSER -d users_db -c "\dt"
-
+            
             echo "=== Orders DB tables ==="
             psql -h postgresql -U $PGUSER -d orders_db -c "\dt"
-
+            
             echo "=== Billing DB tables ==="
             psql -h postgresql -U $PGUSER -d billing_db -c "\dt"
-
+            
             echo "=== Notifications DB tables ==="
             psql -h postgresql -U $PGUSER -d notifications_db -c "\dt"
-
-            echo "=== Подробная информация о таблицах ==="
-
-            echo "--- users_db ---"
-            psql -h postgresql -U $PGUSER -d users_db -c "\d+ users"
-            psql -h postgresql -U $PGUSER -d users_db -c "\d+ auth_users"
-
-            echo "--- orders_db ---"
-            psql -h postgresql -U $PGUSER -d orders_db -c "\d+ orders"
-            psql -h postgresql -U $PGUSER -d orders_db -c "\d+ completed_sagas"
-
-            echo "--- billing_db ---"
-            psql -h postgresql -U $PGUSER -d billing_db -c "\d+ accounts"
-            psql -h postgresql -U $PGUSER -d billing_db -c "\d+ payment_transactions"
-
-            echo "--- notifications_db ---"
-            psql -h postgresql -U $PGUSER -d notifications_db -c "\d+ notifications"
+            
+            echo "Migration completed successfully!"
       restartPolicy: Never
   backoffLimit: 2
