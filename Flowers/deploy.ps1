@@ -77,25 +77,23 @@ Write-Host "`n5. Проверка и установка Ingress Nginx Controller
 $ingressInstalled = helm list -n ingress-nginx | findstr "ingress-nginx"
 
 if (-not $ingressInstalled) {
-    # Добавляем репозиторий (если еще не добавлен)
-    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx 2>$null
-    helm repo update
+	# Добавляем репозиторий Traefik
+	helm repo add traefik https://traefik.github.io/charts
+	helm repo update
 
-    Write-Host "Установка Ingress Nginx Controller..." -ForegroundColor Yellow
+    Write-Host "Установка Traefik..." -ForegroundColor Yellow
     
-    # Устанавливаем с явными параметрами и таймаутом
-    $ingressJob = Start-Job -ScriptBlock {
-        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx `
-            --namespace ingress-nginx `
-            --create-namespace `
-            --set controller.service.type=LoadBalancer `
-            --set controller.ingressClassResource.default=true `
-            --atomic `
-    }
+	# Устанавливаем Traefik
+	helm upgrade --install traefik traefik/traefik `
+	  --namespace traefik `
+	  --create-namespace `
+	  --set service.type=LoadBalancer `
+	  --set ingressClass.enabled=true `
+	  --set ingressClass.isDefaultClass=true
 
     # Ожидание с прогресс-баром
-    Write-Host "Ожидаем завершения установки (максимум 3 минуты)..." -NoNewline
-    $timeout = 180 # 3 минуты
+    Write-Host "Ожидаем завершения установки (максимум 5 минут)..." -NoNewline
+    $timeout = 300 # 5 минут
     $startTime = Get-Date
 
     while ($ingressJob.State -eq "Running") {

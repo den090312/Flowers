@@ -3,12 +3,9 @@ kind: Ingress
 metadata:
   name: flowers-ingress
   annotations:
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS, DELETE"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    traefik.ingress.kubernetes.io/router.middlewares: default-cors@kubernetescrd
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - host: arch.homework
     http:
@@ -27,3 +24,15 @@ spec:
             name: billing-service
             port:
               number: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cors
+  namespace: default
+spec:
+  headers:
+    customRequestHeaders:
+      Access-Control-Allow-Origin: "*"
+      Access-Control-Allow-Methods: "PUT, GET, POST, OPTIONS, DELETE"
+      Access-Control-Allow-Headers: "DNT, Keep-Alive, User-Agent, X-Requested-With, If-Modified-Since, Cache-Control, Content-Type"
