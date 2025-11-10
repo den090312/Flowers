@@ -84,12 +84,14 @@ if (-not $ingressInstalled) {
     Write-Host "Установка Traefik..." -ForegroundColor Yellow
     
 	# Устанавливаем Traefik
-	helm upgrade --install traefik traefik/traefik `
-	  --namespace traefik `
-	  --create-namespace `
-	  --set service.type=LoadBalancer `
-	  --set ingressClass.enabled=true `
-	  --set ingressClass.isDefaultClass=true
+	$ingressJob = Start-Job -ScriptBlock {
+		helm upgrade --install traefik traefik/traefik `
+		  --namespace traefik `
+		  --create-namespace `
+		  --set service.type=LoadBalancer `
+		  --set ingressClass.enabled=true `
+		  --set ingressClass.isDefaultClass=true
+    }
 
     # Ожидание с прогресс-баром
     Write-Host "Ожидаем завершения установки (максимум 5 минут)..." -NoNewline

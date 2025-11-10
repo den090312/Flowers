@@ -117,7 +117,7 @@ else
 }
 
 // Корневой endpoint
-app.MapGet("/", () => "Billing API is running");
+app.MapGet("/bill", () => "Billing API is running");
 #endregion
 
 #region СЕРВИС БИЛЛИНГ
