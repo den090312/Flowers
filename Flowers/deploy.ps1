@@ -197,7 +197,7 @@ try {
 # 7.4. Сборка образа billing-api
 Write-Host "`n7.4. Сборка образа billing-api..." -ForegroundColor Green
 try {
-    docker build -t billing-api:latest -f C:/Users/User/source/repos/Flowers/Billing/Dockerfile .
+    docker build -t billing-api:latest -f C:/Users/User/source/repos/Billing/Billing/Dockerfile .
     if (-not $?) {
         throw "Ошибка сборки Docker образа billing-api"
     }
