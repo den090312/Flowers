@@ -122,7 +122,7 @@ else
 }
 
 // Корневой endpoint
-app.MapGet("/", () => "Flowers API is running");
+app.MapGet("/flowers", () => "Flowers API is running");
 #endregion
 
 #region АУТЕНТИФИКАЦИЯ
@@ -282,7 +282,7 @@ deliveryGroup.MapPost("/cancel", async (CancelCourierRequest request, IDeliveryS
 #endregion
 
 #region СЕРВИС БИЛЛИНГ
-var billingGroup = app.MapGroup("/bill");
+var billingGroup = app.MapGroup("/billing");
 
 // Пополнение счета
 billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService service) =>

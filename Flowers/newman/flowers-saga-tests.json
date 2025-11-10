@@ -126,7 +126,7 @@
           "mode": "raw",
           "raw": "{\n  \"userId\": {{user_id}},\n  \"amount\": 300\n}"
         },
-        "url": "{{baseUrl}}/bill/deposit"
+        "url": "{{baseUrl}}/billinging/deposit"
       }
     },
     {
@@ -202,7 +202,7 @@
             "value": "Bearer {{auth_token}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+        "url": "{{baseUrl}}/billinging/balance/{{user_id}}"
       }
     },
     {
@@ -280,7 +280,7 @@
             "value": "Bearer {{auth_token}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+        "url": "{{baseUrl}}/billinging/balance/{{user_id}}"
       }
     },
     {
@@ -358,7 +358,7 @@
             "value": "Bearer {{auth_token}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+        "url": "{{baseUrl}}/billinging/balance/{{user_id}}"
       }
     },
     {
@@ -436,7 +436,7 @@
             "value": "Bearer {{auth_token}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+        "url": "{{baseUrl}}/billinging/balance/{{user_id}}"
       }
     },
     {
@@ -517,7 +517,7 @@
             "value": "Bearer {{auth_token}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id}}"
+        "url": "{{baseUrl}}/billinging/balance/{{user_id}}"
       }
     }
   ]

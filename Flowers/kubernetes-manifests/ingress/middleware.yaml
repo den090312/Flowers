@@ -1,0 +1,11 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cors
+  namespace: traefik
+spec:
+  headers:
+    customRequestHeaders:
+      Access-Control-Allow-Origin: "*"
+      Access-Control-Allow-Methods: "PUT, GET, POST, OPTIONS, DELETE"
+      Access-Control-Allow-Headers: "DNT, Keep-Alive, User-Agent, X-Requested-With, If-Modified-Since, Cache-Control, Content-Type"

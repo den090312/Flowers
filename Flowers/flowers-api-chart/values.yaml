@@ -12,7 +12,7 @@ db:
   password: postgres
 
 ingress:
-  enabled: true
+  enabled: false
   hosts:
     - host: arch.homework
       paths:

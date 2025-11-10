@@ -131,7 +131,7 @@
           "mode": "raw",
           "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 300\n}"
         },
-        "url": "{{baseUrl}}/bill/deposit"
+        "url": "{{baseUrl}}/billing/deposit"
       }
     },
     {
@@ -202,7 +202,7 @@
             "value": "Bearer {{auth_token_payment}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id_payment}}"
+        "url": "{{baseUrl}}/billing/balance/{{user_id_payment}}"
       }
     },
     {
@@ -241,7 +241,7 @@
           "mode": "raw",
           "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 100,\n  \"orderId\": {{order_id_for_payment}}\n}"
         },
-        "url": "{{baseUrl}}/bill/withdraw"
+        "url": "{{baseUrl}}/billing/withdraw"
       }
     },
     {
@@ -272,7 +272,7 @@
             "value": "Bearer {{auth_token_payment}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id_payment}}"
+        "url": "{{baseUrl}}/billing/balance/{{user_id_payment}}"
       }
     },
     {
@@ -311,7 +311,7 @@
           "mode": "raw",
           "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 100,\n  \"orderId\": {{order_id_for_payment}}\n}"
         },
-        "url": "{{baseUrl}}/bill/withdraw"
+        "url": "{{baseUrl}}/billing/withdraw"
       }
     },
     {
@@ -350,7 +350,7 @@
           "mode": "raw",
           "raw": "{\n  \"userId\": {{user_id_payment}},\n  \"amount\": 100,\n  \"orderId\": {{order_id_for_payment}}\n}"
         },
-        "url": "{{baseUrl}}/bill/withdraw"
+        "url": "{{baseUrl}}/billing/withdraw"
       }
     },
     {
@@ -382,7 +382,7 @@
             "value": "Bearer {{auth_token_payment}}"
           }
         ],
-        "url": "{{baseUrl}}/bill/balance/{{user_id_payment}}"
+        "url": "{{baseUrl}}/billing/balance/{{user_id_payment}}"
       }
     }
   ]

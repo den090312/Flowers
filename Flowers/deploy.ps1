@@ -70,51 +70,54 @@ helm upgrade --install postgresql oci://registry-1.docker.io/bitnamicharts/postg
   --set volumePermissions.image.repository=bitnamilegacy/os-shell `
   --set global.security.allowInsecureImages=true
   
-# 5. Проверка и установка Ingress Nginx Controller
-Write-Host "`n5. Проверка и установка Ingress Nginx Controller..." -ForegroundColor Cyan
+# 5. Проверка и установка Traefik
+Write-Host "`n5. Проверка и установка Traefik..." -ForegroundColor Cyan
 
-# Проверяем, установлен ли уже ingress-nginx
-$ingressInstalled = helm list -n ingress-nginx | findstr "ingress-nginx"
+# Проверяем, установлен ли уже Traefik
+$traefikInstalled = helm list -n Traefik | findstr "traefik"
 
-if (-not $ingressInstalled) {
-	# Добавляем репозиторий Traefik
-	helm repo add traefik https://traefik.github.io/charts
-	helm repo update
-
-    Write-Host "Установка Traefik..." -ForegroundColor Yellow
-    
-	# Устанавливаем Traefik
-	$ingressJob = Start-Job -ScriptBlock {
-		helm upgrade --install traefik traefik/traefik `
-		  --namespace traefik `
-		  --create-namespace `
-		  --set service.type=LoadBalancer `
-		  --set ingressClass.enabled=true `
-		  --set ingressClass.isDefaultClass=true
-    }
-
-    # Ожидание с прогресс-баром
-    Write-Host "Ожидаем завершения установки (максимум 5 минут)..." -NoNewline
-    $timeout = 300 # 5 минут
-    $startTime = Get-Date
-
-    while ($ingressJob.State -eq "Running") {
-        if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
-            Stop-Job $ingressJob
-            Write-Host "`nТаймаут установки Ingress Controller!" -ForegroundColor Red
-        }
-        
-        Write-Host "." -NoNewline
-        Start-Sleep -Seconds 5
-    }
-
-    Receive-Job $ingressJob
-    Remove-Job $ingressJob
-
-    Write-Host "`nIngress Nginx Controller успешно установлен!" -ForegroundColor Green
-} else {
-    Write-Host "Ingress Nginx Controller уже установлен, пропускаем установку" -ForegroundColor Green
+if (-not $traefikInstalled) {
+	
 }
+else {
+	Write-Host "Ingress Traefik уже установлен, пропускаем установку" -ForegroundColor Green
+}
+
+# Добавляем репозиторий Traefik
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+
+Write-Host "Установка Traefik..." -ForegroundColor Yellow
+
+# Устанавливаем Traefik
+$ingressJob = Start-Job -ScriptBlock {
+	helm upgrade --install traefik traefik/traefik `
+	  --namespace traefik `
+	  --create-namespace `
+	  --set service.type=LoadBalancer `
+	  --set ingressClass.enabled=true `
+	  --set ingressClass.isDefaultClass=true
+}
+
+# Ожидание с прогресс-баром
+Write-Host "Ожидаем завершения установки (максимум 5 минут)..." -NoNewline
+$timeout = 300 # 5 минут
+$startTime = Get-Date
+
+while ($ingressJob.State -eq "Running") {
+	if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
+		Stop-Job $ingressJob
+		Write-Host "`nТаймаут установки Ingress Controller!" -ForegroundColor Red
+	}
+	
+	Write-Host "." -NoNewline
+	Start-Sleep -Seconds 5
+}
+
+Receive-Job $ingressJob
+Remove-Job $ingressJob
+
+Write-Host "`nIngress Traefik успешно установлен!" -ForegroundColor Green
 
 # 6. Ожидание БД
 Write-Host "`n6. Ожидание БД..." -ForegroundColor Cyan
@@ -313,26 +316,6 @@ kubectl get pods,svc,ingress
 Write-Host "`n10. Проверка доступности API..." -ForegroundColor Cyan
 $ingressHost = kubectl get ingress -o jsonpath='{.items[0].spec.rules[0].host}'
 
-# Проверка основного API
-$apiUrl = "http://$ingressHost/"
-Write-Host "Выполняем тестовый запрос к основному API: $apiUrl" -ForegroundColor Yellow
-
-try {
-    $response = Invoke-WebRequest -Uri $apiUrl -Method Get -UseBasicParsing -TimeoutSec 10
-    
-    if ($response.StatusCode -eq 200) {
-        Write-Host "✅ Основной API успешно отвечает! Результат:" -ForegroundColor Green
-        Write-Host $response.Content -ForegroundColor DarkGray
-    } else {
-        Write-Host "❌ Основной API вернул неожиданный статус: $($response.StatusCode)" -ForegroundColor Yellow
-        Write-Host "Ответ сервера:" -ForegroundColor DarkGray
-        Write-Host $response.Content
-    }
-} catch {
-    Write-Host "❌ Ошибка при запросе к основному API:" -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-}
-
 # Проверка billing API
 $billingApiUrl = "http://$ingressHost/billing"
 Write-Host "`nВыполняем тестовый запрос к Billing API: $billingApiUrl" -ForegroundColor Yellow
@@ -497,38 +480,8 @@ helm repo update
 helm install prometheus-postgresql prometheus-community/prometheus-postgres-exporter
 helm repo list
 
-# 15. Проверки
-Write-Host "`n15. Проверки:" -ForegroundColor Green
-
-# Health checks
-Write-Host "Проверка health:" -ForegroundColor Yellow
-try {
-    $healthResponse = Invoke-RestMethod -Uri "http://arch.homework/health" -Method Get -TimeoutSec 10
-    Write-Host "✅ Health check: $($healthResponse)" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Health check failed: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Detailed health
-Write-Host "Проверка detailed health:" -ForegroundColor Yellow
-try {
-    $detailedHealth = Invoke-RestMethod -Uri "http://arch.homework/health/detailed" -Method Get -TimeoutSec 10
-    Write-Host "✅ Detailed health: $($detailedHealth.status)" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Detailed health failed: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Метрики
-Write-Host "Проверка метрик:" -ForegroundColor Yellow
-try {
-    $metrics = Invoke-WebRequest -Uri "http://arch.homework/metrics" -Method Get -TimeoutSec 10
-    Write-Host "✅ Метрики доступны ($($metrics.Content.Length) bytes)" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Метрики недоступны: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# 14. Установка NetData (альтернатива Grafana)
-Write-Host "`n16. Установка NetData..." -ForegroundColor Cyan
+# 15. Установка NetData (альтернатива Grafana)
+Write-Host "`n15. Установка NetData..." -ForegroundColor Cyan
 
 try {
     # Останавливаем старый контейнер если есть
@@ -566,8 +519,8 @@ catch {
     Write-Host "Ошибка при запуске NetData: $_" -ForegroundColor Red
 }
 
-# 15. Установка pgAdmin для визуального управления БД
-Write-Host "`n15. Установка pgAdmin..." -ForegroundColor Cyan
+# 16. Установка pgAdmin для визуального управления БД
+Write-Host "`n16. Установка pgAdmin..." -ForegroundColor Cyan
 
 try {
     # Останавливаем старый контейнер если есть
@@ -604,22 +557,4 @@ try {
 }
 catch {
     Write-Host "Ошибка при запуске pgAdmin: $_" -ForegroundColor Red
-}
-
-# Health checks billing
-Write-Host "Проверка health billing:" -ForegroundColor Yellow
-try {
-    $billingHealthResponse = Invoke-RestMethod -Uri "http://$ingressHost/bill/health" -Method Get -TimeoutSec 10
-    Write-Host "✅ Billing Health check: $($billingHealthResponse)" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Billing Health check failed: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Метрики billing
-Write-Host "Проверка метрик billing:" -ForegroundColor Yellow
-try {
-    $billingMetrics = Invoke-WebRequest -Uri "http://$ingressHost/bill/metrics" -Method Get -TimeoutSec 10
-    Write-Host "✅ Метрики Billing API доступны ($($billingMetrics.Content.Length) bytes)" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Метрики Billing API недоступны: $($_.Exception.Message)" -ForegroundColor Red
 }

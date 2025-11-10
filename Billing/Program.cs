@@ -117,11 +117,11 @@ else
 }
 
 // Êîðíåâîé endpoint
-app.MapGet("/bill", () => "Billing API is running");
+app.MapGet("/billing", () => "Billing API is running");
 #endregion
 
 #region ÑÅÐÂÈÑ ÁÈËËÈÍÃ
-var billingGroup = app.MapGroup("/bill");
+var billingGroup = app.MapGroup("/billing");
 
 // Ïîïîëíåíèå ñ÷åòà
 billingGroup.MapPost("/deposit", async (DepositRequest request, IBillingService service) =>
