@@ -188,8 +188,8 @@ billingGroup.MapPost("/withdraw", async (WithdrawRequest request, IBillingServic
 
 #region ÏÐÎÂÅÐÊÀ ÇÄÎÐÎÂÜß
 // Health checks endpoints
-app.MapHealthChecks("/health");
-app.MapHealthChecks("/health/detailed", new HealthCheckOptions()
+billingGroup.MapHealthChecks("/health");
+billingGroup.MapHealthChecks("/health/detailed", new HealthCheckOptions()
 {
     ResponseWriter = async (context, report) =>
     {

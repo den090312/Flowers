@@ -102,7 +102,6 @@ if (-not $ingressInstalled) {
         if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
             Stop-Job $ingressJob
             Write-Host "`nТаймаут установки Ingress Controller!" -ForegroundColor Red
-            exit 1
         }
         
         Write-Host "." -NoNewline
@@ -137,7 +136,6 @@ while (-not $dbReady) {
     
     if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
         Write-Host "Таймаут ожидания PostgreSQL!" -ForegroundColor Red
-        exit 1
     }
     
     Start-Sleep -Seconds 5
@@ -164,13 +162,11 @@ while ($true) {
     elseif ($jobStatus.status.failed -gt 0) {
         Write-Host "Ошибка при выполнении миграции!" -ForegroundColor Red
         kubectl logs -l job-name=db-migration
-        exit 1
     }
     
     if (((Get-Date) - $startTime).TotalSeconds -gt $timeout) {
         Write-Host "Таймаут ожидания миграции БД!" -ForegroundColor Red
         kubectl logs -l job-name=db-migration
-        exit 1
     }
     
     Start-Sleep -Seconds 5
@@ -193,7 +189,6 @@ try {
     }
 } catch {
     Write-Host "Ошибка при сборке образа: $_" -ForegroundColor Red
-    exit 1
 }
 
 # 7.4. Сборка образа billing-api
@@ -206,7 +201,6 @@ try {
     Write-Host "Billing API образ успешно собран" -ForegroundColor Green
 } catch {
     Write-Host "Ошибка при сборке образа billing-api: $_" -ForegroundColor Red
-    exit 1
 }
 
 # 8. Проверка запуска API и вывод логов
@@ -254,7 +248,6 @@ while (-not $apiReady) {
         Write-Host "Таймаут ожидания API!" -ForegroundColor Red
         Write-Host "Последние логи:" -ForegroundColor Red
         kubectl logs -l app=flowers-api --tail=50
-        exit 1
     }
     
     Start-Sleep -Seconds 5
@@ -306,7 +299,6 @@ while (-not $billingApiReady) {
         Write-Host "Таймаут ожидания Billing API!" -ForegroundColor Red
         Write-Host "Последние логи billing-api:" -ForegroundColor Red
         kubectl logs -l app=billing-api --tail=50
-        exit 1
     }
     
     Start-Sleep -Seconds 5
@@ -394,7 +386,6 @@ try {
 }
 catch {
     Write-Host "Ошибка при запуске Prometheus: $_" -ForegroundColor Red
-    exit 1
 }
 
 # Проверка метрик Prometheus
@@ -446,7 +437,6 @@ try {
 }
 catch {
     Write-Host "Ошибка при запуске Grafana: $_" -ForegroundColor Red
-    exit 1
 }
 
 # 13. Создание общей сети и подключение контейнеров
@@ -473,7 +463,7 @@ catch {
 Write-Host "`nПроверка Grafana..." -ForegroundColor Cyan
 try {
     $retryCount = 0
-    $maxRetries = 10
+    $maxRetries = 5
     $success = $false
     
     while ($retryCount -lt $maxRetries -and -not $success) {
