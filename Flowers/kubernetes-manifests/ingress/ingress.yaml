@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: |
+      default-strip-flowers-prefix@kubernetescrd,
+      default-strip-billing-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: arch.homework
+    http:
+      paths:
+      - path: /flowers
+        pathType: Prefix
+        backend:
+          service:
+            name: flowers-service
+            port:
+              number: 80
+      - path: /billing
+        pathType: Prefix
+        backend:
+          service:
+            name: billing-service
+            port:
+              number: 80
